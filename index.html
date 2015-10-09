@@ -1,0 +1,914 @@
+<html>
+    <head>
+        <style>
+			html, body {
+				width: 100%;
+				height: 100%;
+			}
+
+			body {
+				background-color: #ffffff;
+				margin: 0;
+				overflow: hidden;
+				font-family: arial;
+			}
+
+			#blocker {
+
+				position: absolute;
+
+				width: 100%;
+				height: 100%;
+
+				background-color: rgba(0,0,0,0.5);
+
+			}
+
+			#instructions {
+
+				width: 100%;
+				height: 100%;
+
+				display: -webkit-box;
+				display: -moz-box;
+				display: box;
+
+				-webkit-box-orient: horizontal;
+				-moz-box-orient: horizontal;
+				box-orient: horizontal;
+
+				-webkit-box-pack: center;
+				-moz-box-pack: center;
+				box-pack: center;
+
+				-webkit-box-align: center;
+				-moz-box-align: center;
+				box-align: center;
+
+				color: #ffffff;
+				text-align: center;
+
+				cursor: pointer;
+
+			}
+            
+            #container {
+                width: 100%;
+				height: 100%;
+
+				display: -webkit-box;
+				display: -moz-box;
+				display: box;
+
+				-webkit-box-orient: horizontal;
+				-moz-box-orient: horizontal;
+				box-orient: horizontal;
+
+				-webkit-box-pack: center;
+				-moz-box-pack: center;
+				box-pack: center;
+
+				-webkit-box-align: center;
+				-moz-box-align: center;
+				box-align: center;
+
+				color: #ffffff;
+				text-align: center;
+            }
+            #gameover {
+                position: absolute;
+
+				width: 100%;
+				height: 100%;
+
+				display: -webkit-box;
+				display: -moz-box;
+				display: box;
+
+				-webkit-box-orient: horizontal;
+				-moz-box-orient: horizontal;
+				box-orient: horizontal;
+
+				-webkit-box-pack: center;
+				-moz-box-pack: center;
+				box-pack: center;
+
+				-webkit-box-align: center;
+				-moz-box-align: center;
+				box-align: center;
+
+				color: #990000;
+                background-color: #ff0000;
+                opacity: 0;
+				text-align: center;
+			}
+		</style>
+        
+        <script src="js/jquery_v1.9.0.js"></script>
+        <script src="libs/three.js"></script>
+        <script src="libs/threex.keyboardstate.js"></script>
+        <script src="libs/threex.text.js"></script>
+
+        <script src="fonts/droid/droid_serif_bold.typeface.js"></script>
+        <script src="js/pathfinding-browser.min.js"></script>
+        
+        <script src="js/controls.js"></script>
+        
+        <audio id = "bg_music" src = "audio/MusicBackground.mp3" preload="auto" loop="true" autoplay ="true"></audio>
+        <audio id = "collecting_page_sound" src = "audio/CollectingPage.mp3" preload="auto"></audio>
+        <audio id = "gameOver_notification" src = "audio/GameOverNotification.mp3" preload="auto"></audio>
+        <audio id = "gameOver_effect" src = "audio/GameOverEffect.mp3" preload="auto"></audio>
+        <audio id = "steps_sound" src = "audio/Steps.mp3" preload="auto" ></audio>
+    </head>
+    <body>
+        <div id="gameover">
+            <span style="font-size:60px">You died</span>
+            </br>
+        <span style="font-size:20px">Better luck next time.</span>
+        </div>
+        <div id="container">
+            <div id="blocker">
+                <div id="instructions">
+                    <span style="font-size:40px">Click to play</span>
+                    <br />
+                    (W, A, S, D = Move, MOUSE = Look around)
+                </div>                
+            </div>            
+        </div>
+        
+        
+        <script>
+            var CEILING_HEIGHT = 5;
+            
+            var clock = new THREE.Clock();
+            
+            var camera, scene, renderer;
+            var pointer;
+            
+            var flashlight;
+
+            var myName;
+            
+            var delta;
+            
+            var windowWidth, windowHeight;
+            
+            var mouseX = 0, mouseY = 0;
+            var rotationController;
+            var pathFindingGrid;
+            
+            var playerCubeHUD;
+            
+            var score = 0;
+            var totalPossibleScore = 0;
+            var scoreDisplay;
+            
+            // Maze array
+            var maze = [['b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b'], 
+                        ['b','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','b','b','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','b'],
+                        ['b','e','p','e','e','e','p','e','e','e','e','p','e','p','e','e','e','b','b','e','p','e','e','e','p','e','e','e','e','p','e','p','e','e','e','b'],
+                        ['b','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','b','b','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','b'],
+                        ['b','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','b','b','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','b'],
+                        ['b','b','b','b','b','b','b','b','b','e','b','b','b','b','b','b','b','b','b','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','b'],
+                        ['b','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','b','b','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','b'],
+                        ['b','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','b','b','e','e','p','p','p','p','p','p','e','e','e','e','e','e','e','e','b'],
+                        ['b','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','b','b','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','b'],
+                        ['b','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','b','b','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','b'],
+                        ['b','b','b','b','b','b','b','b','b','b','b','b','e','b','b','b','b','b','b','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','b'],
+                        ['b','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','b','b','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','b'],
+                        ['b','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','b','b','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','b'],
+                        ['b','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','b'],
+                        ['b','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','b','b','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','b'],
+                        ['b','b','e','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','b'],
+                        ['b','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','b','b','e','e','e','e','p','e','e','e','e','e','e','e','e','e','e','e','b'],
+                        ['b','e','p','p','p','p','p','p','e','e','p','e','e','e','e','e','e','b','b','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','b'],
+                        ['b','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','b','b','e','e','e','e','e','p','e','e','e','e','e','e','e','e','e','e','b'],
+                        ['b','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','b','b','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','b'],
+                        ['b','b','b','b','b','b','b','b','e','b','b','b','b','b','b','b','b','b','b','b','b','b','e','b','b','b','b','e','b','b','b','b','b','b','b','b'],
+                        ['b','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','b','b','e','e','e','e','e','b','e','e','e','e','e','e','e','e','e','e','b'],
+                        ['b','e','p','e','e','e','p','e','e','e','e','p','e','p','e','e','e','b','b','e','p','e','e','e','p','e','e','e','e','p','e','p','e','e','e','b'],
+                        ['b','e','e','e','e','e','e','p','p','p','p','p','e','e','e','e','e','b','b','e','e','e','e','e','b','e','e','e','e','e','e','e','e','e','e','b'],
+                        ['b','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','b','b','e','e','e','e','e','b','e','e','e','e','e','e','e','e','e','e','b'],
+                        ['b','b','b','b','e','b','b','b','b','e','b','b','b','b','b','b','b','b','b','e','e','e','e','e','p','e','e','e','e','e','e','e','e','e','e','b'],
+                        ['b','e','e','e','e','e','e','e','e','e','e','e','e','e','e','p','e','b','b','e','e','e','p','e','b','e','e','e','e','e','e','e','e','e','e','b'],
+                        ['b','e','e','e','e','e','e','e','p','e','e','e','e','e','e','e','e','b','b','e','e','e','e','e','b','e','e','e','e','e','e','e','e','e','e','b'],
+                        ['b','e','e','e','p','e','e','e','e','e','e','e','e','e','e','e','e','b','b','e','e','e','e','e','b','e','e','e','e','e','e','e','e','e','e','b'],
+                        ['b','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','b','b','e','e','e','e','e','b','e','e','e','e','e','e','e','e','e','e','b'],
+                        ['b','b','b','b','b','b','b','e','b','b','b','b','e','b','b','b','b','b','b','e','e','e','e','e','b','e','e','e','e','e','e','e','e','e','e','b'],
+                        ['b','e','e','e','e','e','e','e','b','e','e','e','e','e','e','e','e','b','b','e','e','e','e','e','b','e','e','e','e','e','e','e','e','e','e','b'],
+                        ['b','e','e','e','e','e','e','e','b','e','e','e','e','e','e','e','e','b','b','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','b'],
+                        ['b','e','e','e','p','e','e','e','b','e','e','e','e','e','e','e','e','b','b','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','b'],
+                        ['b','e','e','e','e','e','e','e','b','e','e','e','e','e','e','e','e','b','b','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','b'],
+                        ['b','b','e','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','b'],
+                        ['b','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','b','b','e','e','e','e','p','e','e','e','e','p','e','e','e','e','e','e','b'],
+                        ['b','e','e','e','e','e','e','e','p','e','e','e','e','e','e','e','e','e','e','e','e','e','p','e','e','e','p','e','e','e','e','e','e','e','e','b'],
+                        ['b','e','e','e','p','p','e','e','e','e','e','e','e','e','e','e','e','p','e','e','e','e','e','e','e','e','p','e','e','e','e','e','e','e','e','b'],
+                        ['b','e','e','e','e','e','e','e','e','e','p','e','e','e','e','e','e','b','b','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','e','b'],
+                        ['b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b','b']];
+            
+            var mazeObjects = new Array(maze.length);
+            for( var i = 0; i < maze.length; i++ )
+            {
+                mazeObjects[i] = new Array(maze[i].length);
+            }
+            
+            var ghostArray = new Array(4);
+            var ghostArrayHUD = new Array(4);
+            var ghostNextStepArray = new Array(4);
+            
+            var views = [
+                // FIRST PERSON CAMERA
+				{
+					left: 0,
+					bottom: 0,
+					width: 1.0,
+					height: 1.0,
+					background: new THREE.Color().setRGB( 0, 0, 0 ),
+					eye: [ 10, 10, 1.7 ],
+                    rotation: [ 0, 0, 0 ],
+					up: [ 0, 0, 1 ],
+					fov: 60,
+					updateCamera: function ( camera, scene, mouseX, mouseY ) {
+                        
+					},
+                    lockWidthHeight: false
+				},
+                // HUD CAMERA
+				{
+					left: 0.05,
+					bottom: 0.05,
+					width: 0.20,
+					height: 0.2,
+					background: new THREE.Color().setRGB( 0, 0, 0 ),
+					eye: [ 50, 45, 100 ],
+                    rotation: [ 0, 0, 0 ],
+					up: [ 0, 1, 0 ],
+					fov: 60,
+					updateCamera: function ( camera, scene, mouseX, mouseY ) {
+					  //camera.position.y -= mouseX * 0.05;
+					  //camera.position.y = Math.max( Math.min( camera.position.y, 1600 ), -1600 );
+					  //camera.lookAt( scene.position );
+					},
+                    lockWidthHeight: true
+				}
+			];
+            
+            function init()
+            {
+                container = document.getElementById( 'container' );
+                
+                // Cameras for multiple views
+                for (var ii =  0; ii < views.length; ++ii ) {
+					var view = views[ii];
+					camera = new THREE.PerspectiveCamera( view.fov, window.innerWidth / window.innerHeight, 0.1, 10000 );
+					camera.position.x = view.eye[ 0 ];
+					camera.position.y = view.eye[ 1 ];
+					camera.position.z = view.eye[ 2 ];
+                    camera.rotation.x = view.rotation[0];
+                    camera.rotation.y = view.rotation[1];
+                    camera.rotation.z = view.rotation[2];
+					camera.up.x = view.up[ 0 ];
+					camera.up.y = view.up[ 1 ];
+					camera.up.z = view.up[ 2 ];
+					view.camera = camera;
+				}
+                
+                
+                
+                keyboard = new THREEx.KeyboardState();
+
+                scene = new THREE.Scene();
+                //0.06
+                scene.fog = new THREE.FogExp2( 0x000000, 0.0001 );
+                
+                rotationController = new Controls.FirstPersonCameraRotationController(views[0].camera, scene);
+
+                renderer = new THREE.WebGLRenderer({antialias:true});
+                renderer.setClearColor( 0x000000, 1.0 );
+                renderer.setSize( window.innerWidth, window.innerHeight );
+                container.appendChild( renderer.domElement );
+                renderer.shadowMapEnabled = true;				
+
+                //Put my name in 3D
+                myName    = new THREEx.Text('Manuel Gonzalez', {
+                    font        : "droid serif",
+                    weight      : "bold",
+                    size        : 5,
+                    height      : 1.5,
+                });
+                
+                myName.position.z = 37;
+                myName.position.x = 50;
+                myName.position.y = 10;
+                myName.castShadow = true;
+                scene.add(myName);
+                
+                playerCubeHUD = new THREE.Mesh( new THREE.BoxGeometry(3,3,3) , new THREE.MeshBasicMaterial({color: 'yellow', fog: false}));
+                //debugCube2 = new THREE.Mesh( new THREE.BoxGeometry(1,1,1) , new THREE.MeshBasicMaterial({color: 'yellow'}));
+                playerCubeHUD.position.z = CEILING_HEIGHT + 4;
+                scene.add( playerCubeHUD );
+                
+                flashlight = new THREE.SpotLight( 0xffffff, 3.0 );
+                flashlight.angle = Math.PI/4;
+                flashlight.distance = 16;
+                scene.add(flashlight);
+                
+                // Put the ground plane
+                PutGroundPlane();
+                
+                // Put the ceiling
+                PutCeiling();
+                
+                // Setup maze
+                CreateMaze();
+                
+                // Setup the pathfinder
+                CreatePathFinder();
+                
+                CreateGhosts();
+                
+                UpdateScore();
+                
+                //Pointer for the camera
+                pointer = new THREE.Mesh( new THREE.BoxGeometry(1,1,1), new THREE.MeshBasicMaterial({color:'red'}) );
+
+				document.addEventListener( 'mousemove', onDocumentMouseMove, false );
+                
+                render();
+            }
+            
+            function onDocumentMouseMove( event ) 
+            {
+				mouseX = ( event.clientX - windowWidth / 2 );
+				mouseY = ( event.clientY - windowHeight / 2 );
+			}
+            
+            function PutGroundPlane ()
+            {
+                var texture = THREE.ImageUtils.loadTexture('images/groundTerrain.jpg');
+                texture.wrapS = THREE.RepeatWrapping;
+                texture.wrapT = THREE.RepeatWrapping;
+                texture.repeat.set( 75, 75 );
+
+                var planeMaterial = new THREE.MeshLambertMaterial(new THREE.MeshLambertMaterial({map:texture}));
+                var planeGeometry = new THREE.PlaneGeometry( 250, 250, 250, 250 );
+                plane = new THREE.Mesh( planeGeometry, planeMaterial, 0 );
+                plane.name = "GroundPlane";
+                
+                plane.receiveShadow = true;
+                
+                scene.add(plane);
+            }
+            
+            function PutCeiling()
+            {
+                var texture = THREE.ImageUtils.loadTexture('images/groundTerrain.jpg');
+                texture.wrapS = THREE.RepeatWrapping;
+                texture.wrapT = THREE.RepeatWrapping;
+                texture.repeat.set( 75, 75 );
+
+                var planeMaterial = new THREE.MeshLambertMaterial(new THREE.MeshLambertMaterial({map:texture}));
+                var planeGeometry = new THREE.PlaneGeometry( 250, 250, 250, 250 );
+                plane = new THREE.Mesh( planeGeometry, planeMaterial, 0 );
+                plane.name = "CeilingPlane";
+                
+                plane.position.z = CEILING_HEIGHT;
+                plane.rotation.y += Math.PI;
+                
+                scene.add(plane);
+            }
+            
+            function CreatePathFinder()
+            {
+                pathFindingGrid = new PF.Grid(maze.length, maze[0].length);
+                
+                for( var i = 0; i < maze.length; i++ )
+                {
+                    for ( var j = 0; j < maze[i].length; j++ )
+                    {
+                        if( maze[i][j] == 'b' )
+                        {
+                            pathFindingGrid.setWalkableAt( i, j, false );
+                        }
+                    }
+                }
+            }
+            
+            function RunPathFinderOnGhosts()
+            {
+                for( var i = 0; i < ghostArray.length; i++ )
+                {
+                    // Get the ghost current position on the grid
+                    var positionJ = Math.floor( (ghostArray[i].position.x + cubeSize/2)/cubeSize );
+                    var positionI = Math.floor( (ghostArray[i].position.y + cubeSize/2)/cubeSize );
+                    
+                    // Get the player's current position on the grid
+                    var playerPositionJ = Math.floor( (views[0].camera.position.x + cubeSize/2)/cubeSize );
+                    var playerPositionI = Math.floor( (views[0].camera.position.y + cubeSize/2)/cubeSize );
+                    
+                    if( positionJ == playerPositionJ && positionI == playerPositionI )
+                    {
+                        PlayerDies();
+                        return;
+                    }
+                    
+                    if( i == 3 )
+                    {
+                        playerPositionJ = Math.floor(Math.random()*maze.length);
+                        playerPositionI = Math.floor(Math.random()*maze[0].length);
+                    }
+                    
+                    var gridBackup = pathFindingGrid.clone();
+
+                    var finder = new PF.AStarFinder({allowDiagonal:true});
+
+                    var path = finder.findPath( positionJ, positionI, playerPositionJ, playerPositionI, gridBackup);
+                    
+                    if( path.length > 1 )
+                    {
+                        ghostNextStepArray[i] = path[1];
+                    }
+                }
+            }
+            
+            var cubeSize = CEILING_HEIGHT/2;
+            var skullTexture = THREE.ImageUtils.loadTexture('images/wallOfSkulls.jpg');
+            var bricktexture = THREE.ImageUtils.loadTexture('images/brickWall.jpg');
+            var pageTexture = THREE.ImageUtils.loadTexture('images/page.png');
+            var cubeGeometry = new THREE.BoxGeometry( cubeSize, cubeSize, CEILING_HEIGHT+ 4);
+            var cubeMaterial1 = new THREE.MeshLambertMaterial( {map: skullTexture} );
+            var cubeMaterial2 = new THREE.MeshLambertMaterial( {map: bricktexture} );
+            
+            function CreateMaze()
+            {
+                for( var i = 0; i < maze.length; i++ )
+                {
+                    for( var j = 0; j < maze[i].length; j++ )
+                    {
+                        if( maze[i][j] == 'e' )
+                        {
+                        }
+                        else if( maze[i][j] == 'b' )
+                        {
+                            var cube;
+
+                            var mapCube = new THREE.Mesh( new THREE.BoxGeometry( cubeSize, cubeSize, 2 ), new THREE.MeshBasicMaterial( {color: 'blue', fog: false} ) );
+                            scene.add( mapCube );
+
+                            if( i > 6 && j > 7 )
+                                cube = new THREE.Mesh( cubeGeometry, cubeMaterial1, 40, 40, 40 );
+                            else
+                                cube = new THREE.Mesh( cubeGeometry, cubeMaterial2, 40, 40, 40 );
+                            cube.position.x = i*cubeSize;
+                            cube.position.y = j*cubeSize;
+                            cube.position.z += cubeSize / 2;
+                            mapCube.position = cube.position.clone();
+                            mapCube.position.z += CEILING_HEIGHT + 4;
+
+                            scene.add( cube );
+                        }
+                        else if( maze[i][j] == 'p' )
+                        {
+                            var page = new THREE.Mesh( new THREE.PlaneGeometry( 0.35, 0.5 ), new THREE.MeshBasicMaterial( {map:pageTexture, side:THREE.DoubleSide, transparent:true}) );
+                            pageCubeHUD = new THREE.Mesh( new THREE.BoxGeometry(3,3,3) , new THREE.MeshBasicMaterial({color: 'white', fog: false}));
+                            pageCubeHUD.position.y = CEILING_HEIGHT + 5;
+                            page.add(pageCubeHUD);                           
+                            
+                            page.position.x = i*cubeSize;
+                            page.position.y = j*cubeSize;
+                            page.position.z = 1.4;
+                            page.rotation.x += Math.PI/2;                            
+                            
+                            mazeObjects[i][j] = page;
+                            
+                            totalPossibleScore++;
+                            
+                            scene.add(page);
+                        }
+                    }
+                }
+                
+                views[0].camera.position.x = 1*cubeSize;
+                views[0].camera.position.y = 1*cubeSize;
+            }
+            
+            var GHOSTS_INITIAL_POSX = [Math.floor(Math.random()*maze.length), Math.floor(Math.random()*maze.length), Math.floor(Math.random()*maze.length), Math.floor(Math.random()*maze.length)];
+            var GHOSTS_INITIAL_POSY = [Math.floor(Math.random()*maze[0].length), Math.floor(Math.random()*maze[0].length), Math.floor(Math.random()*maze[0].length), Math.floor(Math.random()*maze[0].length)];
+            function CreateGhosts()
+            {
+                for(var i = 0; i < ghostArray.length; i++ )
+                {
+                    var ghostTextureName = "images/ghost" + (i+1) + ".png";
+                    var ghostHUDTextureName = "images/ghost" + (i+1) + "hud.png";
+                    
+                    var ghostTexture = THREE.ImageUtils.loadTexture( ghostTextureName );
+                    ghostArray[i] = new THREE.Sprite( new THREE.SpriteMaterial( { map: ghostTexture, color: 0xffffff, fog: true } ) );
+                    ghostArray[i].scale.y = 2.0;
+                    ghostArray[i].position.x = GHOSTS_INITIAL_POSX[i]*cubeSize;
+                    ghostArray[i].position.y = GHOSTS_INITIAL_POSY[i]*cubeSize;
+                    ghostArray[i].position.z = views[0].camera.position.z;
+                    var hudGhostTexture = THREE.ImageUtils.loadTexture( ghostHUDTextureName );
+                    ghostArrayHUD[i] = new THREE.Mesh( new THREE.PlaneGeometry(15, 15), 
+                                              new THREE.MeshBasicMaterial({map: hudGhostTexture, fog: false, transparent:true}) );
+                    ghostArrayHUD[i].position = ghostArray[i].position.clone();
+                    ghostArrayHUD[i].position.z += CEILING_HEIGHT + 10;
+                    scene.add(ghostArrayHUD[i]);
+                    scene.add(ghostArray[i]);
+                }                
+            }
+            
+            var ghostBaseSpeed = 0.2;
+            var ghostWalkingSpeed = 0.01;
+            function UpdateGhosts()
+            {
+                ghostWalkingSpeed = ghostBaseSpeed*delta*Math.random()*score;
+                // Find the player
+                RunPathFinderOnGhosts();
+                
+                // Move the ghost there
+                for( var i = 0; i < ghostArray.length; i++ )
+                {
+                    var currentGhostPosition = ghostArray[i].position.clone();
+                    
+                    if( ghostNextStepArray[i] == undefined ) continue;
+                    
+                    if( ghostArray[i].position.x < ghostNextStepArray[i][0]*cubeSize - 0.1 )
+                    {
+                        ghostArray[i].position.x += ghostWalkingSpeed;
+                    }
+                    if( ghostArray[i].position.x > ghostNextStepArray[i][0]*cubeSize + 0.1 )
+                    {
+                        ghostArray[i].position.x -= ghostWalkingSpeed;
+                    }
+                    if( ghostArray[i].position.y < ghostNextStepArray[i][1]*cubeSize - 0.1 )
+                    {
+                        ghostArray[i].position.y += ghostWalkingSpeed;
+                    }
+                    if( ghostArray[i].position.y > ghostNextStepArray[i][1]*cubeSize + 0.1 )
+                    {
+                        ghostArray[i].position.y -= ghostWalkingSpeed;
+                    }
+                    
+                    ghostArrayHUD[i].position = ghostArray[i].position.clone();
+                    ghostArrayHUD[i].position.z += CEILING_HEIGHT + 10;
+                }
+            }
+            
+            var collisionDistance = 1.0;
+            function MazeCollisions( currentX, currentY, currentZ, speed, normalizedVector )
+            {               
+                var positionX = views[0].camera.position.x;
+                var positionY = views[0].camera.position.y;
+                
+                // Get the i and j of the players, based on its position
+                var positionJ = Math.floor( (positionX + cubeSize/2 - 0)/cubeSize );
+                var positionI = Math.floor( (positionY + cubeSize/2 - 0)/cubeSize );
+                
+                if( maze[positionJ][positionI] == 'p' )
+                {
+                    maze[positionJ][positionI] = 'e';
+                    
+                    scene.remove(mazeObjects[positionJ][positionI]);
+                    
+                    score++;
+                    
+                    document.getElementById("collecting_page_sound").play();
+                    
+                    UpdateScore();
+                }
+                
+                // Three positions
+                var axisZ = new THREE.Vector3( 0, 0, 1 );
+                var angle = Math.PI / 6;
+
+                var normalizedVectorRight = normalizedVector.clone().applyAxisAngle( axisZ, angle );
+                var normalizedVectorLeft  = normalizedVector.clone().applyAxisAngle( axisZ, -angle );
+                
+                var nextXCenter = currentX + normalizedVector.x*(speed + collisionDistance);
+                var nextYCenter = currentY + normalizedVector.y*(speed + collisionDistance);
+                
+                var nextXRight  = currentX + normalizedVectorRight.x*(speed + collisionDistance);
+                var nextYRight  = currentY + normalizedVectorRight.y*(speed + collisionDistance);
+                
+                var nextXLeft   = currentX + normalizedVectorLeft.x*(speed + collisionDistance);
+                var nextYLeft   = currentY + normalizedVectorLeft.y*(speed + collisionDistance);
+                
+                var posJCenter = Math.floor( (nextXCenter + cubeSize/2)/cubeSize );
+                var posICenter = Math.floor( (nextYCenter + cubeSize/2)/cubeSize );
+                var posJRight  = Math.floor( (nextXRight + cubeSize/2)/cubeSize );
+                var posIRight  = Math.floor( (nextYRight + cubeSize/2)/cubeSize );
+                var posJLeft   = Math.floor( (nextXLeft + cubeSize/2)/cubeSize );
+                var posILeft   = Math.floor( (nextYLeft + cubeSize/2)/cubeSize );
+                
+                if( posICenter < 0 || posICenter >= maze[0].length || posJCenter < 0 || posJCenter >= maze.length )
+                    return;
+                if( posIRight < 0 || posIRight >= maze[0].length || posJRight < 0 || posJRight >= maze.length )
+                    return;
+                if( posILeft < 0 || posILeft >= maze[0].length || posJLeft < 0 || posJLeft >= maze.length )
+                    return;
+                
+                var velocityX = normalizedVector.x*speed;
+                var velocityY = normalizedVector.y*speed;
+                
+                if( maze[posJCenter][posICenter] == 'b' )
+                {
+                    var raycaster = new THREE.Raycaster( new THREE.Vector3( currentX, currentY, currentZ ), normalizedVector, 0.01, collisionDistance + speed );
+                    
+                    var intersections = raycaster.intersectObjects( scene.children );
+                    
+                    if ( intersections.length > 0 )
+                    {
+                        var inter = intersections[0];
+
+                        if( inter.face != null )
+                        {
+                            if( inter.face.normal.equals( new THREE.Vector3( 0, -1, 0 ) ) || inter.face.normal.equals( new THREE.Vector3( 0, 1, 0 ) ) )
+                            {
+                                velocityY = 0;
+                            }
+                            else if( inter.face.normal.equals( new THREE.Vector3( -1, 0, 0 ) ) || inter.face.normal.equals( new THREE.Vector3( 1, 0, 0 ) ) )
+                            {
+                                velocityX = 0;
+                            }
+                        }
+                    }                    
+                }
+                
+                if( maze[posJRight][posIRight] == 'b' )
+                {
+                    var raycaster = new THREE.Raycaster( new THREE.Vector3( currentX, currentY, currentZ ), normalizedVectorRight, 0.01, collisionDistance + speed );
+                    
+                    var intersections = raycaster.intersectObjects( scene.children );
+                    
+                    if ( intersections.length > 0 )
+                    {
+                        var inter = intersections[0];
+
+                        if( inter.face != null )
+                        {
+                            if( inter.face.normal.equals( new THREE.Vector3( 0, -1, 0 ) ) || inter.face.normal.equals( new THREE.Vector3( 0, 1, 0 ) ) )
+                            {
+                                velocityY = 0;
+                            }
+                            else if( inter.face.normal.equals( new THREE.Vector3( -1, 0, 0 ) ) || inter.face.normal.equals( new THREE.Vector3( 1, 0, 0 ) ) )
+                            {
+                                velocityX = 0;
+                            }
+                        }
+                    }
+                }
+                
+                if( maze[posJLeft][posILeft] == 'b' )
+                {
+                    var raycaster = new THREE.Raycaster( new THREE.Vector3( currentX, currentY, currentZ ), normalizedVectorLeft, 0.01, collisionDistance + speed );
+                    
+                    var intersections = raycaster.intersectObjects( scene.children );
+                    
+                    if ( intersections.length > 0 )
+                    {
+                        var inter = intersections[0];
+
+                        if( inter.face != null )
+                        {
+                            if( inter.face.normal.equals( new THREE.Vector3( 0, -1, 0 ) ) || inter.face.normal.equals( new THREE.Vector3( 0, 1, 0 ) ) )
+                            {
+                                velocityY = 0;
+                            }
+                            else if( inter.face.normal.equals( new THREE.Vector3( -1, 0, 0 ) ) || inter.face.normal.equals( new THREE.Vector3( 1, 0, 0 ) ) )
+                            {
+                                velocityX = 0;
+                            }
+                        }
+                    }
+                }
+                
+                views[0].camera.position.x += velocityX;
+                views[0].camera.position.y += velocityY;
+                
+                playerCubeHUD.position.x = posJCenter*cubeSize;
+                playerCubeHUD.position.y = posICenter*cubeSize;              
+            }
+            
+            var pageAnimationFrame = 0;
+            var PAGE_GOING_DOWN_FRAME = 50;
+            var PAGE_END_ANIMATION_FRAME = 100;
+            var PAGE_INITIAL_HEIGHT = 1.4;
+            
+            function animatePages()
+            {
+                pageAnimationFrame++;
+
+                if( pageAnimationFrame > PAGE_END_ANIMATION_FRAME )
+                    pageAnimationFrame = 0;
+
+                for( var i = 0; i < maze.length; i++ )
+                {
+                    for( var j = 0; j < maze[i].length; j++ )
+                    {
+                        if(maze[i][j] != 'p') continue;
+                                                
+                        if( pageAnimationFrame < PAGE_GOING_DOWN_FRAME )
+                            mazeObjects[i][j].position.z = PAGE_INITIAL_HEIGHT + pageAnimationFrame / 303;
+                        else
+                            mazeObjects[i][j].position.z = PAGE_INITIAL_HEIGHT + (PAGE_END_ANIMATION_FRAME - pageAnimationFrame) / 303;                            
+
+                    }
+                }
+            }
+            
+            var gameOverOpacity = 0;
+            var gameOver = false;
+            
+            function PlayerDies()
+            {
+                if( gameOverOpacity >= 1 )
+                    return;
+                
+                document.getElementById("gameOver_effect").play();
+                document.getElementById("gameOver_notification").play();
+                
+                gameOver = true;
+                gameOverOpacity += 0.1;
+                $("#gameover").css('opacity', gameOverOpacity );  
+                $("#gameover").css('z-index', 1000 );
+                $("#instructions").css('z-index', 0 );
+            }
+            
+            function UpdateScore()
+            {
+                scene.remove(scoreDisplay);
+                
+                var str = "Score: " + score + '/' + totalPossibleScore;                
+                
+                //Put my name in 3D
+                scoreDisplay    = new THREEx.Text(str, {
+                    font        : "droid serif",
+                    weight      : "bold",
+                    size        : 5,
+                    height      : 1.5,
+                });
+                
+                scoreDisplay.position.z = 40;
+                scoreDisplay.position.x = 50;
+                scoreDisplay.position.y = 70;
+                
+                scene.add(scoreDisplay);
+            }
+
+            function updateSize()
+            {
+                if( windowWidth != window.innerWidth || windowHeight != window.innerHeight )
+                {
+                    windowWidth = window.innerWidth;
+                    windowHeight = window.innerHeight;
+                    
+                    renderer.setSize( windowWidth, windowHeight );
+                }
+            }
+            
+            var walkingAnimationFrame = 0;
+            var GOING_DOWN_FRAME = 20;
+            var END_ANIMATION_FRAME = 40;
+            var walking = false;
+            var walkingSpeedPerSecond = 5.0;
+            var walkingSpeed = 0;
+            
+            function render()
+            {
+                delta = clock.getDelta();
+                
+                walkingSpeed = walkingSpeedPerSecond*delta;
+                animatePages();
+                
+                updateSize();
+                rotationController.Update();
+                
+                if( rotationController.GetEnabled() )
+                    UpdateGhosts();
+                
+                flashlight.position = views[0].camera.position.clone();
+                flashlight.position.x -= rotationController.GetFacingDirection().x * 4;
+                flashlight.position.y -= rotationController.GetFacingDirection().y * 4;
+                
+                if( rotationController.GetEnabled() && !gameOver )
+                {
+                    if( walking == true )
+                    {
+                        walkingAnimationFrame++;
+
+                        if( walkingAnimationFrame <= GOING_DOWN_FRAME )
+                            walkingAnimationFrame++;
+                    }
+                    else if( walkingAnimationFrame > 0 )
+                    {
+                        if( walkingAnimationFrame < GOING_DOWN_FRAME )
+                            walkingAnimationFrame -=2;
+                        else walkingAnimationFrame +=2;
+                    }
+
+                    if( walkingAnimationFrame > END_ANIMATION_FRAME )
+                        walkingAnimationFrame = 0;
+
+                    if( walkingAnimationFrame < GOING_DOWN_FRAME )
+                        views[0].camera.position.z = views[0].eye[2] + walkingAnimationFrame / 100;
+                    else
+                        views[0].camera.position.z = views[0].eye[2] + (END_ANIMATION_FRAME - walkingAnimationFrame) / 100;
+                    
+                    if( walking == true )
+                    {
+                        document.getElementById("steps_sound").playbackRate = 1.5;
+                        document.getElementById("steps_sound").play();
+                    }
+
+                    walking = false;
+
+                    // Three positions
+                    var axisZ = new THREE.Vector3( 0, 0, 1 );
+
+                    var forwardVector = rotationController.GetFacingDirection().clone();
+
+                    if( keyboard.pressed("w") )
+                    {
+                        walking = true;
+                        MazeCollisions( views[0].camera.position.x, views[0].camera.position.y, views[0].camera.position.z, walkingSpeed, forwardVector );
+                    }
+                    if( keyboard.pressed("a") )
+                    {
+                        walking = true;
+                        MazeCollisions( views[0].camera.position.x, views[0].camera.position.y, views[0].camera.position.z, walkingSpeed, 
+                                        forwardVector.clone().applyAxisAngle( axisZ, Math.PI/2 ) );
+                        //views[0].camera.position.x += -walkingSpeed*rotationController.GetFacingDirection().y;
+                        //views[0].camera.position.y +=  walkingSpeed*rotationController.GetFacingDirection().x;
+                    }
+                    if( keyboard.pressed("s") )
+                    {
+                        walking = true;
+                        MazeCollisions( views[0].camera.position.x, views[0].camera.position.y, views[0].camera.position.z, walkingSpeed, 
+                                        forwardVector.clone().applyAxisAngle( axisZ, Math.PI ) );
+                        //views[0].camera.position.x += -walkingSpeed*rotationController.GetFacingDirection().x;
+                        //views[0].camera.position.y += -walkingSpeed*rotationController.GetFacingDirection().y;
+                    }	
+                    if( keyboard.pressed("d") )
+                    {
+                        walking = true;                    
+                        MazeCollisions( views[0].camera.position.x, views[0].camera.position.y, views[0].camera.position.z, walkingSpeed, 
+                                        forwardVector.clone().applyAxisAngle( axisZ, -Math.PI/2 ) );
+                        //views[0].camera.position.x +=  walkingSpeed*rotationController.GetFacingDirection().y;
+                        //views[0].camera.position.y += -walkingSpeed*rotationController.GetFacingDirection().x;
+                    }
+                    if( keyboard.pressed("space") )
+                    {
+
+                    }
+                    if( keyboard.pressed("1") )
+                    {
+
+                    }
+                    if( keyboard.pressed("2") )
+                    {
+
+                    }
+                    if( keyboard.pressed("3") )
+                    {
+
+                    }
+                    if( keyboard.pressed("4") )
+                    {
+
+                    }
+                }
+                
+                // Render each camera
+                for ( var ii = 0; ii < views.length; ++ii ) {
+					view = views[ii];
+					camera = view.camera;
+
+					view.updateCamera( camera, scene, mouseX, mouseY );
+
+					var left   = Math.floor( windowWidth  * view.left );
+					var bottom = Math.floor( windowHeight * view.bottom );
+					var width  = Math.floor( windowWidth  * view.width );
+                    var height = 0;
+                    if( view.lockWidthHeight == true ) height = width;
+                    else height = Math.floor( windowHeight  * view.height );
+					renderer.setViewport( left, bottom, width, height );
+					renderer.setScissor( left, bottom, width, height );
+					renderer.enableScissorTest ( true );
+					renderer.setClearColor( view.background );
+
+					camera.aspect = width / height;
+					camera.updateProjectionMatrix();
+
+					renderer.render( scene, camera );
+				}
+
+                requestAnimationFrame( render );
+                renderer.render( scene, camera );
+            }
+
+            window.onload = init;
+        </script>
+        
+        <script src="js/checkPointerLock.js"></script>
+    </body>    
+</html>
