@@ -1,0 +1,16 @@
+Each object has                         life    cost    timeBuilding
+    type =  'b' building
+            'r' resource
+    subtype 'b':
+                'c' collector (1)       50      100     3
+                'd' defense   (2)       400     150     3
+                'a' attack    (3)       50      100     3
+            'r':                        yield
+                'n' normal    (1)       5
+                
+Initial resources 100
+Name of the resources: "X"
+
+The farther from the middle the faster ?????
+Passing the central ball from building to building to the player's edge of the board ????
+                

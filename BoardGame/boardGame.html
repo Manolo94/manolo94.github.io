@@ -1,0 +1,1255 @@
+<html>
+    <head>
+        <style>
+			html, body {
+				width: 100%;
+				height: 100%;
+			}
+
+			body {
+				background-color: #ffffff;
+				margin: 0;
+				overflow: hidden;
+				font-family: arial;
+			}
+
+			#blocker {
+
+				position: absolute;
+
+				width: 100%;
+				height: 100%;
+
+				background-color: rgba(0,0,0,0.5);
+
+			}
+
+			#instructions {
+
+                position: absolute;
+                
+				width: 75%;
+				height: 75%;
+                
+                left: 12.5%;
+                top: 12.5%;
+                
+                z-index: 1000;
+                
+                opacity: 0.7;
+
+				display: -webkit-box;
+				display: -moz-box;
+				display: box;
+
+				-webkit-box-orient: horizontal;
+				-moz-box-orient: horizontal;
+				box-orient: horizontal;
+
+				-webkit-box-pack: center;
+				-moz-box-pack: center;
+				box-pack: center;
+
+				-webkit-box-align: center;
+				-moz-box-align: center;
+				box-align: center;
+
+				color: #ffffff;
+                background-color: #000000;
+				text-align: left;
+
+				cursor: pointer;
+
+			}
+            
+            #container {
+                width: 100%;
+				height: 100%;
+
+				display: -webkit-box;
+				display: -moz-box;
+				display: box;
+
+				-webkit-box-orient: horizontal;
+				-moz-box-orient: horizontal;
+				box-orient: horizontal;
+
+				-webkit-box-pack: center;
+				-moz-box-pack: center;
+				box-pack: center;
+
+				-webkit-box-align: center;
+				-moz-box-align: center;
+				box-align: center;
+
+				color: #ffffff;
+				text-align: center;
+            }
+            #gameover {
+                position: absolute;
+                
+                left: 0%;
+                top: 0%;
+
+				width: 100%;
+				height: 100%;
+
+				display: -webkit-box;
+				display: -moz-box;
+				display: box;
+
+				-webkit-box-orient: horizontal;
+				-moz-box-orient: horizontal;
+				box-orient: horizontal;
+
+				-webkit-box-pack: center;
+				-moz-box-pack: center;
+				box-pack: center;
+
+				-webkit-box-align: center;
+				-moz-box-align: center;
+				box-align: center;
+
+				color: #990000;
+                background-color: #ff0000;
+                opacity: 0;
+				text-align: center;
+			}
+		</style>
+        
+        <script src="js/jquery_v1.9.0.js"></script>
+        <script src="libs/three.js"></script>
+        <script src="libs/threex.keyboardstate.js"></script>
+        <script src="libs/threex.text.js"></script>
+        
+        <script src="js/pathfinding-browser.min.js"></script>
+        
+        <audio id = "bkg_audio" src = "audio/BackgroundAudio.mp3" preload="auto" loop="true" autoplay ="true"></audio>
+        <audio id = "attack_attacker_snd" src = "audio/AttackAttacker.mp3" preload="auto"></audio>
+        <audio id = "attack_collector_snd" src = "audio/AttackCollector.mp3" preload="auto"></audio>
+        <audio id = "attack_crystal_snd" src = "audio/AttackCrystal.mp3" preload="auto"></audio>
+        <audio id = "attack_defense_snd" src = "audio/AttackDefense.mp3" preload="auto"></audio>
+        <audio id = "bld_construction1_snd" src = "audio/BuildingConstruction.mp3" preload="auto"></audio>
+        <audio id = "bld_construction2_snd" src = "audio/BuildingConstruction.mp3" preload="auto"></audio>
+        <audio id = "bld_construction3_snd" src = "audio/BuildingConstruction.mp3" preload="auto"></audio>
+        <audio id = "bld_construction4_snd" src = "audio/BuildingConstruction.mp3" preload="auto"></audio>
+        <audio id = "bld_construction5_snd" src = "audio/BuildingConstruction.mp3" preload="auto"></audio>
+        <audio id = "bld_destroyed_snd" src = "audio/BuildingDestroyed.mp3" preload="auto"></audio>
+        <audio id = "lost_snd" src = "audio/Lost.mp3" preload="auto"></audio>
+        <audio id = "won_snd" src = "audio/Won.mp3" preload="auto"></audio>
+        
+    </head>
+    <body oncontextmenu="return false">
+        <div id="instructions" onclick="startGame()">
+            <div style="position: relative; margin-left: 5%; width: 90%">
+            Instructions: </br>
+                &nbsp - The objective is to destroy the enemy's Crystal building. </br>
+                &nbsp - You can build three types of buildings:</br>
+                &nbsp &nbsp - Collectors ( Axe icon )</br>
+                &nbsp &nbsp - Defenders ( Shield icon )</br>
+                &nbsp &nbsp - Attackers ( Sword icon )</br>
+                &nbsp - Each building starts with a certain amount of life.</br>
+                &nbsp - Drag a drop any building from the bottom menu into the field.</br>
+                &nbsp - You can only build in the green area and when you have enough resources to build them</br>
+                &nbsp - The cost of the building is indicated below its icon in the bottom menu.</br>
+                &nbsp - Your current resources are indicated in the upper right corner of your screen.</br>
+                &nbsp - The only buildings that can inflict damage are the Attackers. They can only attack a tile that is at most two tiles from them.</br>
+                &nbsp &nbsp - To attack: Once the Attacker is finished building ( When the Time to Completion is 0 ), you can select it and a red region will be highlighted. Those are the tiles that can be attacked, right click into an enemy building on top of the red tiles and the attack will begin.</br>
+                &nbsp - You can only gain resources from collectors.</br>
+                &nbsp - Sparsed throughout the map, there are some tiles that are rich in resources ( marked with a golden cube ). Collectors built on top of them will gain a bonus on the amount of resources they collect.</br></br>
+
+            Hope you have lots of fun. Good Luck!!!</br></br>
+
+            Click this message to dismiss it.</br>
+            </div>
+        </div>
+        <div id="container">
+
+        </div>
+        
+        <div id="gameover">
+            
+        </div>
+        <div id="buildingSelector" draggable="false" style="position:absolute; margin-left: -12.5%; left: 50%; bottom:30px; width:25%;-webkit-touch-callout: none;
+                                                            -webkit-user-select: none; -khtml-user-select: none; -moz-user-select: none; -ms-user-select: none;
+                                                            user-select: none;">
+            <div id="collector">
+                <img src="images/collectorIcon.png" style="width:33%; float:right" draggable="false">
+            </div>
+            <div id="defense">
+                <img src="images/defenseIcon.png" style="width:33%; float:right" draggable="false">                
+            </div>
+            <div id="attack">
+                <img src="images/attackIcon.png" style="width:33%; float:right" draggable="false">                
+            </div>
+        </div>
+        <div style="position:absolute; margin-left: -12.5%; left: 50%; bottom:30px; width:25%; -webkit-touch-callout: none;
+                                                            -webkit-user-select: none; -khtml-user-select: none; -moz-user-select: none; -ms-user-select: none;
+                                                            user-select: none;">
+            <div id="collector" style="width:33%; float:right; font-size:30px; text-align:right">
+                100
+            </div>
+            <div id="defense" style="width:33%; float:right; font-size:30px; text-align:right">
+                150               
+            </div>
+            <div id="attack" style="width:33%; float:right; font-size:30px; text-align:right">
+                100                
+            </div>
+        </div>
+        <div id="resources" style="position:absolute; left:90%; top:30px;"></div>
+        <div id="info" style="position:absolute; left:80%; bottom:5%; font-size:20px; background-color:#4663a0; color: #ffffff; -webkit-touch-callout: none;
+                                                            -webkit-user-select: none; -khtml-user-select: none; -moz-user-select: none; -ms-user-select: none;
+                                                            user-select: none;">
+            Press 'Space' for Instructions. </br> </br>
+            By Manuel Gonzalez
+        </div>
+        <script>            
+            var clock = new THREE.Clock();
+            
+            var camera, scene, renderer;
+            
+            var windowWidth, windowHeight;
+            
+            var playerResources = 400;
+            var enemyResorces = 400;
+            
+            var mouseX = 0, mouseY = 0;
+            
+            var selectionPlane;
+            var buildHelper;
+            
+            var raycaster = new THREE.Raycaster();
+            
+            var mouse = new THREE.Vector2();
+            
+            var gameOver = false;
+            
+            var gameStarted = false;
+            function startGame()
+            {
+                if( !gameStarted )
+                {
+                    gameStarted = true;
+                    init();
+                }
+                
+                $("#instructions").hide();
+            }
+            
+            // Game constants
+            var BOARD_SIZE = 100;
+            var BOARD_GRID_SIZE = 11;
+            var CELL_SIZE = BOARD_SIZE / BOARD_GRID_SIZE;
+            var INITIAL_BUILD_AREA = 1;
+            var DISTANCE_BUILD_AREA = 1;
+            var NUM_RESOURCES = 10;
+            var OUTPUT_RICH = 20; // Each collector timer
+            var OUTPUT_NORMAL = 4; // Each collector timer
+            var COLLECTOR_TIMER = 1; // Seconds
+            var ATTACKER_RANGE = 2;
+            var ATTACKER_DAMAGE = 20;
+            
+            // Building 1 - collector, 2 - defense, 3 - attack
+            // cost
+            var costs = [];
+            costs[1] = 100;
+            costs[2] = 150;
+            costs[3] = 100;
+            costs[4] = 0;
+            // life
+            var life = [];
+            life[1] = 50;
+            life[2] = 400;
+            life[3] = 100;
+            life[4] = 1000;
+            
+            var initialPlayerBuildingPut = false;
+            var initialEnemyBuildingPut = false;
+            
+            // Textures for the buildings
+            var texCollector = THREE.ImageUtils.loadTexture('images/collectorIcon.png');
+            var texDefense = THREE.ImageUtils.loadTexture('images/defenseIcon.png');
+            var texAttack = THREE.ImageUtils.loadTexture('images/attackIcon.png');
+            var texCenter = THREE.ImageUtils.loadTexture('images/centerIcon.png');
+            var texCollectorEnemy = THREE.ImageUtils.loadTexture('images/collectorIconEnemy.png');
+            var texDefenseEnemy = THREE.ImageUtils.loadTexture('images/defenseIconEnemy.png');
+            var texAttackEnemy = THREE.ImageUtils.loadTexture('images/attackIconEnemy.png');
+            var texCenterEnemy = THREE.ImageUtils.loadTexture('images/centerIconEnemy.png');
+            tex = []; 
+            tex[1] = THREE.ImageUtils.loadTexture('images/collectorIconMask.png'); 
+            tex[2] = THREE.ImageUtils.loadTexture('images/defenseIconMask.png');
+            tex[3] = THREE.ImageUtils.loadTexture('images/attackIconMask.png');
+            
+            // This matrix will hold all the objects on the board
+            var cells = new Array(BOARD_GRID_SIZE);
+            for( var i = 0; i < BOARD_GRID_SIZE; i++ )
+            {
+                cells[i] = new Array(BOARD_GRID_SIZE);
+            }
+            
+            var playerBuildable = new Array(cells.length);
+            for( var i = 0; i < cells.length; i++ )
+            {
+                playerBuildable[i] = new Array(cells[i].length);
+            }
+            
+            var playerAttackable = new Array(cells.length);
+            for( var i = 0; i < cells.length; i++ )
+            {
+                playerAttackable[i] = new Array(cells[i].length);
+            }
+            
+            var enemyBuildable = new Array(cells.length);
+            for( var i = 0; i < cells.length; i++ )
+            {
+                enemyBuildable[i] = Array(cells[i].length);
+            }
+            
+            var enemyAttackable = new Array(cells.length);
+            for( var i = 0; i < cells.length; i++ )
+            {
+                enemyAttackable[i] = new Array(cells[i].length);
+            }
+            
+            // UI for choosing the buildings
+            $(document).ready( function()
+            {
+                $("#collector").mousedown (function() {chosenBuilding = 1;});
+                $("#defense").mousedown (function() {chosenBuilding = 2;});
+                $("#attack").mousedown (function() {chosenBuilding = 3;});
+            });
+
+            var lifeBars = new Array(cells.length);
+            for( var i = 0; i < cells.length; i++ )
+            {
+                lifeBars[i] = new Array(cells[i].length);
+            }
+            
+            function init()
+            {   
+                container = document.getElementById( 'container' );                
+                
+                keyboard = new THREEx.KeyboardState();
+
+                scene = new THREE.Scene();
+                
+                scene.fog = new THREE.FogExp2( 0x000000, 0.0001 );
+                
+                camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 1000 );
+                
+                camera.position.y = -100;
+                camera.position.z =  100;
+                
+                camera.lookAt( new THREE.Vector3(0,-15,0));
+                
+                scene.add(camera);
+                
+                // Set up point light
+                var light = new THREE.PointLight( 0xffffff, 1, 100 ); 
+                light.position.set( 50, 50, 50 ); 
+                scene.add( light );
+                
+                // Set up renderer
+                renderer = new THREE.WebGLRenderer({antialias:true});
+                renderer.setClearColor( 0xffffff, 1.0 );
+                renderer.setSize( window.innerWidth, window.innerHeight );
+                container.appendChild( renderer.domElement );
+                renderer.shadowMap.enabled = true;
+                
+                // Put the ground plane
+                PutGroundPlane();
+                
+                // Set up board
+                SetUpBoard();
+                
+                // Create the build helper
+                buildHelper = new THREE.Mesh(new THREE.BoxGeometry(CELL_SIZE, CELL_SIZE, CELL_SIZE), new THREE.MeshBasicMaterial({transparent:true, opacity:0.4}));
+                buildHelper.position.z = -CELL_SIZE - 4;
+                scene.add(buildHelper);
+                
+                selectionPlane = new THREE.Mesh(new THREE.PlaneGeometry(CELL_SIZE, CELL_SIZE, 1,1), new THREE.MeshBasicMaterial({color:'magenta', transparent:true, opacity:0.5}));
+                selectionPlane.rotation.x = Math.PI;
+                scene.add(selectionPlane);
+                
+                frontWall = new THREE.Mesh(new THREE.BoxGeometry( 400, 1, 400, 1,1), new THREE.MeshLambertMaterial({color:'magenta', transparent:true, opacity:0}));
+                frontWall.rotation.x = -Math.PI/4;
+                frontWall.position.y = BOARD_SIZE / 2 + 10;
+                frontWall.name = "front";
+                scene.add(frontWall);
+                
+                light = new THREE.DirectionalLight( 0xffffff, 1);
+                light.position.z = 1000;
+                scene.add(light);               
+
+				document.addEventListener( 'mousemove', onDocumentMouseMove, false );
+                document.addEventListener( 'mousedown', onDocumentMouseDown, false );
+                document.addEventListener( 'mouseup', onDocumentMouseUp, false );
+                
+                render();
+            }
+            
+            function onDocumentMouseMove( event ) 
+            {
+				mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+                mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+			}
+            
+            // Grid cell i j coordinates of the mouse cursor raycasted onto the board
+            var posI = -1, posJ = -1;
+            function onDocumentMouseDown( event ) 
+            {
+                // calculate mouse position in normalized device coordinates
+                // (-1 to +1) for both components
+
+                mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+                mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+
+                // update the picking ray with the camera and mouse position	
+                raycaster.setFromCamera( mouse, camera );	
+
+                // calculate objects intersecting the picking ray
+                var intersects = raycaster.intersectObjects( scene.children );
+
+                posI = -1; posJ = -1;
+
+                for ( var i = 0; i < intersects.length; i++ )
+                {
+                    if( intersects[ i ].object.name == 'ground' )
+                    {                        
+                        posI = Math.floor( (intersects[ i ].point.x + BOARD_SIZE / 2) / (CELL_SIZE) );
+                        posJ = Math.floor( (intersects[ i ].point.y + BOARD_SIZE / 2) / (CELL_SIZE) );
+                    }
+                }
+                
+                switch( event.which )
+                {
+                    case 1:
+                        HideAttackableArea();
+
+                        // Inside the board
+                        if( posI != -1 && posJ != -1 )
+                        {                    
+                            var reg = FromGridToRegular( posI, posJ );
+
+                            selectionPlane.rotation.x = 0;
+
+                            selectionPlane.position.x = reg.x;
+                            selectionPlane.position.y = reg.y;
+                            selectionPlane.position.z = 1;
+
+                            if( cells[posI][posJ] != null && cells[posI][posJ].type == 'b' 
+                               && cells[posI][posJ].subtype == 'a' && cells[posI][posJ].owner == 'p'
+                               && cells[posI][posJ].completionTimer <= 0)
+                            {
+                                ShowAttackableArea( posI, posJ );
+                            }
+                        }
+                        else
+                        {
+                            selectionPlane.rotation.x = Math.PI;    
+                        }
+                        break;
+                    case 3:
+                        if( posI != -1 && posJ != -1 && playerAttackable[posI][posJ].rotation.x == 0
+                          && cells[posI][posJ] != null && cells[posI][posJ].owner == 'e' )
+                        {
+                            var attackPosI = playerAttackable[posI][posJ].attackOriginPosI;
+                            var attackPosJ = playerAttackable[posI][posJ].attackOriginPosJ;
+                            
+                            cells[attackPosI][attackPosJ].attackingPosI = posI;
+                            cells[attackPosI][attackPosJ].attackingPosJ = posJ;
+                        }
+                        break;
+                        
+                }
+			}
+            
+            function onDocumentMouseUp( event ) 
+            {
+                HideBuildableArea();
+                
+                if( posI != -1 && posJ != -1 && chosenBuilding != 0 && ( cells[posI][posJ] == null || cells[posI][posJ].type == 'r' )
+                    && playerBuildable[posI][posJ].buildable && playerResources >= costs[chosenBuilding])
+                {
+                    if( initialPlayerBuildingPut == false ) initialPlayerBuildingPut = true;
+                    
+                    if( cells[posI][posJ] != null )
+                        scene.remove(cells[posI][posJ]);
+                    
+                    // Create the building, set up the initial values
+                    PutBuilding( posI, posJ, chosenBuilding, 'p' );
+                    
+                    cells[posI][posJ].owner = 'p';
+                    
+                    // Update the buildable grid
+                    UpdateBuildable();
+                    
+                    // Remove the cost of the building from the resources
+                    playerResources -= costs[chosenBuilding];
+                    
+                    // Play the sound
+                    if( $("#bld_construction1_snd").get(0).paused )
+                        $("#bld_construction1_snd").get(0).play();
+                    else if( $("#bld_construction2_snd").get(0).paused )
+                        $("#bld_construction2_snd").get(0).play();
+                    else if( $("#bld_construction3_snd").get(0).paused )
+                        $("#bld_construction3_snd").get(0).play();
+                    else if( $("#bld_construction4_snd").get(0).paused )
+                        $("#bld_construction4_snd").get(0).play();
+                    else if( $("#bld_construction5_snd").get(0).paused )
+                        $("#bld_construction5_snd").get(0).play();
+                }               
+                
+                // Reset everything to the initial state
+                chosenBuilding = 0;
+                buildHelper.position.x = 0;
+                buildHelper.position.y = 0;
+                buildHelper.position.z = -CELL_SIZE;
+                
+                statusUpdate();
+            }
+            
+            function PutBuilding( i, j, buildingType, owner )
+            {
+                // Set up the texture based on building type and the owner ( 'p' - player 'e' - enemy )
+                var thisBuildingTex;
+                if( buildingType == 1 ) {if( owner == 'p') thisBuildingTex = texCollector; else {thisBuildingTex = texCollectorEnemy;}}
+                else if( buildingType == 2) {if( owner == 'p') thisBuildingTex = texDefense; else {thisBuildingTex = texDefenseEnemy;}}
+                else if( buildingType == 3) {if( owner == 'p') thisBuildingTex = texAttack; else {thisBuildingTex = texAttackEnemy;}}
+                else if( buildingType == 4) {if( owner == 'p') thisBuildingTex = texCenter; else {thisBuildingTex = texCenterEnemy;}}
+                
+                var reg = FromGridToRegular( i, j );
+
+                var richCell = cells[i][j] != null && cells[i][j].type == 'r';
+
+                buildingCube = new THREE.Mesh(new THREE.BoxGeometry(CELL_SIZE*3/4, CELL_SIZE*3/4, CELL_SIZE*3/4, 1, 1, 1), new THREE.MeshBasicMaterial({map:thisBuildingTex}));
+                buildingCube.position.x = reg.x;
+                buildingCube.position.y = reg.y;
+                buildingCube.position.z = CELL_SIZE/2*3*4;
+                scene.add(buildingCube);
+
+                cells[i][j] = buildingCube;
+                cells[i][j].type = 'b';
+                
+                if( buildingType == 1) cells[i][j].subtype = 'c';
+                else if( buildingType == 2 ) cells[i][j].subtype = 'd';
+                else if( buildingType == 3 ) cells[i][j].subtype = 'a';
+                else if( buildingType == 4 ) cells[i][j].subtype = 'C';
+                
+                cells[i][j].life = life[buildingType];
+                cells[i][j].totalLife = life[buildingType];
+                if( buildingType == 1 ) cells[i][j].output = richCell ? OUTPUT_RICH : OUTPUT_NORMAL;
+                if( buildingType == 1 ) cells[i][j].collectionTimer = COLLECTOR_TIMER;
+                if( buildingType == 4 )
+                {
+                    cells[i][j].damage = function ( d )
+                        { this.life -= d;
+                          console.log("Center life: " + this.life)
+                          if( this.life <= 0 )
+                          {
+                              if( this.owner == 'e' )
+                                WON();
+                              else
+                                LOST();
+                          }
+                        };
+                    
+                }
+                else
+                {
+                    cells[i][j].damage = function ( d )
+                        { this.life -= d; };
+                }
+                cells[i][j].completionTimer = 3;
+                cells[i][j].update = function() {this.position.z = CELL_SIZE/2*3/4 - this.completionTimer*CELL_SIZE/3*3/4;};
+                
+                // Save its posI and posJ
+                cells[i][j].posI = i;
+                cells[i][j].posJ = j;
+            }
+            
+            function PutEnemyBuilding( i, j, buildingType )
+            {
+                if( i != -1 && j != -1 && buildingType != 0 && ( cells[i][j] == null || cells[i][j].type == 'r' )
+                    && enemyBuildable[i][j] && enemyResorces >= costs[buildingType])
+                {
+                    if( initialEnemyBuildingPut == false ) initialEnemyBuildingPut = true;
+                    
+                    if( cells[i][j] != null && cells.type == 'r' )
+                        scene.remove(cells[i][j]);
+                    
+                    // Create the building, set up the initial values (type, subtype, life, damage, completionTimer, update function)
+                    PutBuilding( i, j, buildingType, 'e' );
+
+                    cells[i][j].owner = 'e';
+                    enemyResorces -= costs[buildingType];
+                    
+                    UpdateBuildable();
+                    
+                    statusUpdate();
+                }
+            }
+            
+            // Converts grid x and y into a Vector2 with the global coordinates for the 
+            //  center of that cell in the grid
+            function FromGridToRegular( gridI, gridJ )
+            {
+                return new THREE.Vector2( gridI*CELL_SIZE - BOARD_SIZE / 2 + CELL_SIZE / 2, gridJ*CELL_SIZE - BOARD_SIZE / 2 + CELL_SIZE / 2 );
+            }
+            
+            function PutGroundPlane ()
+            { 
+                var textureGrid = THREE.ImageUtils.loadTexture('images/gridCell.png');
+                var textureGround = THREE.ImageUtils.loadTexture('images/groundTerrain.jpg');
+                textureGrid.wrapS = THREE.RepeatWrapping;
+                textureGrid.wrapT = THREE.RepeatWrapping;
+                textureGround.wrapS = THREE.RepeatWrapping;
+                textureGround.wrapT = THREE.RepeatWrapping;
+                textureGrid.repeat.set( BOARD_GRID_SIZE, BOARD_GRID_SIZE );
+                textureGround.repeat.set( BOARD_GRID_SIZE, BOARD_GRID_SIZE );
+
+                var planeMaterialGrid = new THREE.MeshBasicMaterial({map:textureGrid, transparent:true});
+                var planeMaterialGround = new THREE.MeshLambertMaterial({map:textureGround});
+                var planeGeometry = new THREE.PlaneGeometry( BOARD_SIZE, BOARD_SIZE, 250, 250 );
+                planeGrid = new THREE.Mesh( planeGeometry, planeMaterialGrid, 0 );
+                planeGround = new THREE.Mesh( planeGeometry, planeMaterialGround, 0 );
+                planeGround.name = "ground";
+                
+                //plane.receiveShadow = true;
+                
+                scene.add(planeGrid);
+                scene.add(planeGround);
+            }
+            
+            function SetUpBoard()
+            {               
+                // Put all the objects in the right position
+                for( var i = 0; i < BOARD_GRID_SIZE; i++ )
+                {
+                    for( var j = 0; j < BOARD_GRID_SIZE; j++ )
+                    {
+                        if( cells[i][j] != null )
+                        {
+                            var reg = FromGridToRegular( i, j );
+                            
+                            cells[i][j].position.x = reg.x;
+                            cells[i][j].position.y = reg.y;
+                            cells[i][j].position.z = 2;
+                            
+                            cells[i][j].posI = i;
+                            cells[i][j].posJ = j;
+                            
+                            scene.add(cells[i][j]);
+                        }
+                        
+                        // Initialize the playerBuildable grid
+                        BuildPlayerBuildableTile( i, j );
+                        
+                        // Initialize the playerAttackable grid
+                        BuildPlayerAttackableTile( i, j );
+                        
+                        // Initialize the lifeBars
+                        BuildLifeBar( i, j );
+
+                        playerBuildable[i][j].buildable = false;
+                    }
+                }
+                
+                // Put the centers for every player
+                PutBuilding( Math.floor(BOARD_GRID_SIZE / 2), 0, 4, 'p' );
+                cells[ Math.floor(BOARD_GRID_SIZE / 2)][0].owner = 'p';
+                PutBuilding( Math.floor(BOARD_GRID_SIZE / 2), BOARD_GRID_SIZE - 1, 4, 'e' );
+                cells[ Math.floor(BOARD_GRID_SIZE / 2)][BOARD_GRID_SIZE - 1].owner = 'e';
+                
+                // Initial player buildable
+                for( var i = 0; i < BOARD_GRID_SIZE; i++ )
+                {
+                    playerBuildable[i][0].buildable = true;
+                }
+                
+                // Initial enemy buildable
+                for( var i = 0; i < BOARD_GRID_SIZE; i++ )
+                {
+                    for( var j = 0; j < BOARD_GRID_SIZE; j++ )
+                    {
+                        enemyBuildable[i][j] = false;
+                    }
+                }
+                
+                // Initial enemy buildable
+                for( var i = 0; i < BOARD_GRID_SIZE; i++ )
+                {
+                    enemyBuildable[i][BOARD_GRID_SIZE - 1] = true;
+                }
+                
+                // Put resources
+                for( var r = 0; r < NUM_RESOURCES; r++ )
+                {
+                    var i = Math.floor(Math.random() * BOARD_GRID_SIZE );
+                    var j = Math.floor(Math.random() * BOARD_GRID_SIZE / 2 + (r%2) * BOARD_GRID_SIZE / 2  ); // alternate each half of the board
+                    
+                    // Prevent from putting a resource below the center of either player
+                    if( i == Math.floor(BOARD_GRID_SIZE / 2) && (j == BOARD_GRID_SIZE - 1 || j == 0) )
+                    {
+                        r --;
+                        continue;
+                    }
+                       
+                    
+                    var reg = FromGridToRegular(i,j);
+                    
+                    // Set cell i j to be a resource
+                    cells[i][j] = new THREE.Mesh(new THREE.CubeGeometry(3,3,3), new THREE.MeshBasicMaterial({color:'yellow'}));
+                    cells[i][j].position.x = reg.x;
+                    cells[i][j].position.y = reg.y;
+                    cells[i][j].position.z = 3/2;
+                    cells[i][j].type = 'r';
+                    cells[i][j].subtype = 'n';
+                    cells[i][j].life = 200;
+                    cells[i][j].damage = function ( d )
+                    { this.life -= d; };
+                    cells[i][j].posI = i;
+                    cells[i][j].posJ = j;
+                    
+                    scene.add(cells[i][j]);
+                }
+                
+                UpdateEnemyBoard();
+            }
+            
+            var chosenBuilding = 0;
+            
+            function ShowBuildableArea()
+            {
+                for( var i = 0; i < playerBuildable.length; i++ )
+                {
+                    for( var j = 0; j < playerBuildable.length; j++ )
+                    {
+                        if( playerBuildable[i][j] != null && playerBuildable[i][j].buildable == true )
+                        {
+                            playerBuildable[i][j].rotation.x = 0;
+                        }
+                    }
+                }
+            }
+
+            function HideBuildableArea()
+            {
+                for( var i = 0; i < playerBuildable.length; i++ )
+                {
+                    for( var j = 0; j < playerBuildable.length; j++ )
+                    {                            
+                        playerBuildable[i][j].rotation.x = Math.PI;
+                    }
+                }
+            }
+            
+            function HideAttackableArea()
+            {
+                for( var i = 0; i < playerBuildable.length; i++ )
+                {
+                    for( var j = 0; j < playerBuildable.length; j++ )
+                    {
+                        if( playerAttackable[i][j] != null && playerAttackable[i][j].rotation.x == 0 )
+                        {
+                            playerAttackable[i][j].rotation.x = Math.PI;
+                        }
+                    }
+                }
+            }
+            
+            function ShowAttackableArea( posI , posJ )
+            {
+                for( var i = 0; i < playerBuildable.length; i++ )
+                {
+                    for( var j = 0; j < playerBuildable.length; j++ )
+                    {
+                        if( playerAttackable[i][j] != null && Math.abs(posI - i) + Math.abs(posJ - j) <= ATTACKER_RANGE )
+                        {
+                            playerAttackable[i][j].rotation.x = 0;
+                            playerAttackable[i][j].attackOriginPosI = posI;
+                            playerAttackable[i][j].attackOriginPosJ = posJ;
+                        }
+                    }
+                }
+            }
+            
+            function updateSize()
+            {
+                if( windowWidth != window.innerWidth || windowHeight != window.innerHeight )
+                {
+                    windowWidth = window.innerWidth;
+                    windowHeight = window.innerHeight;
+                    
+                    renderer.setSize( windowWidth, windowHeight );
+                    
+                    camera.aspect = windowWidth / windowHeight;
+                    
+					camera.updateProjectionMatrix();
+                }
+            }
+            
+            function BuildLifeBar( i, j )
+            {
+                // Change the playerBuildable
+                lifeBars[i][j] = new THREE.Mesh(new THREE.PlaneGeometry(CELL_SIZE,CELL_SIZE/4,1,1), new THREE.MeshBasicMaterial({color:'green', transparent:true, opacity:0.8}));
+                scene.add(lifeBars[i][j]);
+
+                var reg = FromGridToRegular( i, j );
+
+                lifeBars[i][j].position.x = reg.x;
+                lifeBars[i][j].position.y = reg.y;
+                lifeBars[i][j].position.z = CELL_SIZE + 2;
+                lifeBars[i][j].rotation.x = Math.PI;
+            }
+            
+            function ShowLifeBar( i , j , life , totalLife)
+            {
+                lifeBars[i][j].rotation.x = 0;
+                lifeBars[i][j].scale.x = life / totalLife;
+            }
+            
+            function HideLifeBar( i, j )
+            {
+                lifeBars[i][j].rotation.x = Math.PI;
+            }
+            
+            function BuildPlayerBuildableTile( i, j )
+            {
+                // Change the playerBuildable
+                playerBuildable[i][j] = new THREE.Mesh(new THREE.PlaneGeometry(CELL_SIZE,CELL_SIZE,1,1), new THREE.MeshBasicMaterial({color:'green', transparent:true, opacity:0.5}));
+                scene.add(playerBuildable[i][j]);
+
+                var reg = FromGridToRegular( i, j );
+
+                playerBuildable[i][j].position.x = reg.x;
+                playerBuildable[i][j].position.y = reg.y;
+                playerBuildable[i][j].position.z = .5;
+                playerBuildable[i][j].rotation.x = Math.PI;
+            }
+            
+            function BuildPlayerAttackableTile( i, j )
+            {
+                // Change the playerBuildable
+                playerAttackable[i][j] = new THREE.Mesh(new THREE.PlaneGeometry(CELL_SIZE,CELL_SIZE,1,1), new THREE.MeshBasicMaterial({color:'red', transparent:true, opacity:0.5}));
+                scene.add(playerAttackable[i][j]);
+
+                var reg = FromGridToRegular( i, j );
+
+                playerAttackable[i][j].position.x = reg.x;
+                playerAttackable[i][j].position.y = reg.y;
+                playerAttackable[i][j].position.z = .5;
+                playerAttackable[i][j].rotation.x = Math.PI;
+            }
+            
+            function CheckPlayerBuildable( i, j )
+            {
+                if( i >= 0 && i < BOARD_GRID_SIZE && j >= 0 && j < BOARD_GRID_SIZE
+                   && playerBuildable[i][j].buildable == false
+                   && ( cells[i][j] == null || cells[i][j].type == 'r' ) )
+                {
+                    playerBuildable[i][j].buildable = true;
+                }
+            }
+            
+            function CheckEnemyBuildable( i, j )
+            {
+                if( i >= 0 && i < BOARD_GRID_SIZE && j >= 0 && j < BOARD_GRID_SIZE
+                   && enemyBuildable[i][j] == false
+                   && ( cells[i][j] == null || cells[i][j].type == 'r' ) )
+                {
+                    enemyBuildable[i][j] = true;
+                }
+            }
+            
+            function UpdateBuildable()
+            {
+                for( var i = 0; i < BOARD_GRID_SIZE; i++ )
+                {
+                    for( var j = 0; j < BOARD_GRID_SIZE; j++ )
+                    {
+                        playerBuildable[i][j].buildable = false;
+                    }
+                }
+                
+                for( var i = 0; i < BOARD_GRID_SIZE; i++ )
+                {
+                    for( var j = 0; j < BOARD_GRID_SIZE; j++ )
+                    {
+                        enemyBuildable[i][j].buildable = false;
+                    }
+                }
+                
+                if( !initialPlayerBuildingPut )
+                {
+                    // Initial player buildable
+                    for( var i = 0; i < BOARD_GRID_SIZE; i++ )
+                    {
+                        playerBuildable[i][0].buildable = true;
+                    }
+                }
+                if( !initialEnemyBuildingPut )
+                {
+                    // Initial enemy buildable
+                    for( var i = 0; i < BOARD_GRID_SIZE; i++ )
+                    {
+                        if( cells[i][BOARD_GRID_SIZE - 1] == null )
+                            enemyBuildable[i][BOARD_GRID_SIZE - 1] = true;
+                        else
+                            enemyBuildable[i][BOARD_GRID_SIZE - 1] = false;
+                    }
+                }
+                
+                for( var i = 0; i < BOARD_GRID_SIZE; i++ )
+                {
+                    for( var j = 0; j < BOARD_GRID_SIZE; j++ )
+                    {
+                        if( cells[i][j] != null && cells[i][j].type == 'b' )
+                        {
+                            if( cells[i][j].owner == 'p' )
+                            {
+                                var initialI = i;
+                                var initialJ = j;
+
+                                // Check 8 directions
+                                // Left
+                                CheckPlayerBuildable( initialI - 1, initialJ );
+                                // Right
+                                CheckPlayerBuildable( initialI + 1, initialJ );
+                                // Top
+                                CheckPlayerBuildable( initialI, initialJ + 1 );
+                                // Bottom
+                                CheckPlayerBuildable( initialI, initialJ - 1 );
+                            }
+                            else if ( cells[i][j].owner == 'e' )
+                            {
+                                var initialI = i;
+                                var initialJ = j;
+
+                                // Check 8 directions
+                                // Left
+                                CheckEnemyBuildable( initialI - 1, initialJ );
+                                // Right
+                                CheckEnemyBuildable( initialI + 1, initialJ );
+                                // Top
+                                CheckEnemyBuildable( initialI, initialJ + 1 );
+                                // Bottom
+                                CheckEnemyBuildable( initialI, initialJ - 1 );
+                            }
+                        }                                
+                    }                
+                }
+            }
+                    
+            function UpdateBoard( delta )
+            {
+                // Put all the objects in the right position
+                for( var i = 0; i < BOARD_GRID_SIZE; i++ )
+                {
+                    for( var j = 0; j < BOARD_GRID_SIZE; j++ )
+                    {
+                        if( cells[i][j] != null )
+                        {
+                            var reg = FromGridToRegular( i, j );
+                            
+                            // Update completion timer
+                            if( cells[i][j].completionTimer != null )
+                            {
+                                if( cells[i][j].completionTimer > 0 )
+                                    cells[i][j].completionTimer -= delta;
+                            }
+                            
+                            // Add resources to the each player
+                            if( cells[i][j].type == 'b' && cells[i][j].subtype == 'c' )
+                            {                                
+                                if( cells[i][j].collectionTimer <= 0 )
+                                {
+                                    cells[i][j].collectionTimer = COLLECTOR_TIMER;
+                                    
+                                    if( cells[i][j].owner == 'p' )
+                                        playerResources += cells[i][j].output;
+                                    else if ( cells[i][j].owner == 'e' )
+                                    {
+                                        statusUpdate();
+                                        enemyResorces += cells[i][j].output;
+                                    }
+                                }
+                                cells[i][j].collectionTimer -= delta;
+                            }
+                            
+                            // Damage any tile being attacked
+                            if( cells[i][j].type == 'b' && cells[i][j].subtype == 'a' 
+                               && cells[i][j].attackingPosI != null && cells[i][j].attackingPosJ != null )
+                            {
+                                var attackingPosI = cells[i][j].attackingPosI;
+                                var attackingPosJ = cells[i][j].attackingPosJ;
+                                
+                                if( cells[attackingPosI][attackingPosJ] != null)
+                                {
+                                    cells[attackingPosI][attackingPosJ].damage( ATTACKER_DAMAGE*delta );
+                                    ShowLifeBar( attackingPosI, attackingPosJ, cells[attackingPosI][attackingPosJ].life, cells[attackingPosI][attackingPosJ].totalLife );
+                                    
+                                    switch( cells[attackingPosI][attackingPosJ].subtype )
+                                    {
+                                        case 'a':
+                                            $("#attack_attacker_snd").get(0).play();
+                                            break;
+                                        case 'c':
+                                            $("#attack_collector_snd").get(0).play();
+                                            break;
+                                        case 'd':
+                                            $("#attack_defense_snd").get(0).play();
+                                            break;
+                                        case 'C':
+                                            $("#attack_crystal_snd").get(0).play();
+                                            break;
+                                    }                                                
+                                }
+                                else
+                                {
+                                    cells[i][j].attackingPosI = null;
+                                    cells[i][j].attackingPosJ = null;
+                                }                                
+                            }
+                            
+                            // Update each cell with its update function
+                            if( cells[i][j].update != null )
+                            {
+                                cells[i][j].update();
+                            }
+                            
+                            // Destroy if dead
+                            if( cells[i][j].life != null && cells[i][j].life <= 0 )
+                            {
+                                scene.remove(cells[i][j]);
+                                UpdateBuildable();
+                                HideLifeBar( i, j );
+                                cells[i][j] = null;
+                                
+                                //Play the sound
+                                $("#bld_destroyed_snd").get(0).play();
+                                
+                                continue;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            function UpdateEnemyBoard()
+            {
+                //var blob = new Blob( [document.getElementById('worker').textContent] );
+                
+                //var workerUrl = window.URL.createObjectURL (blob)
+                
+                worker = new Worker( "js/webworker.js" );
+                
+                worker.onmessage = function( e )
+                {
+                    if( e.data.type == 'build' )
+                    {
+                        PutEnemyBuilding( e.data.posI, e.data.posJ, e.data.bType );
+                        
+                        statusUpdate();
+                    }
+                    else if( e.data.type == 'attack' )
+                    {
+                        EnemyAttack( e.data.originI, e.data.originJ, e.data.destI, e.data.destJ );
+                    }
+                }
+                
+                console.log( 'posting message on "js/webworker.js" ' );
+                statusUpdate ();
+            }
+            
+            function EnemyAttack( originI, originJ, destI, destJ )
+            {
+                if( originI != -1 && originJ != -1
+                && cells[originI][originJ] != null && cells[originI][originJ].owner != cells[destI][destJ].owner )
+                {
+                    cells[originI][originJ].attackingPosI = destI;
+                    cells[originI][originJ].attackingPosJ = destJ;
+                }
+            }
+            
+            function statusUpdate()
+            {
+                var grid = new Array(cells.length);
+                for( var i = 0; i < cells.length; i++ )
+                {
+                    grid[i] = new Array(cells[i].length);
+                }
+                
+                for( var i = 0; i < cells.length; i++ )
+                {
+                    for ( var j = 0; j < cells.length; j++ )
+                    {
+                        if( cells[i][j] != null )
+                        {
+                            if( cells[i][j].type == 'b' )
+                                grid[i][j] = cells[i][j].type + cells[i][j].subtype + cells[i][j].owner;
+                            else        
+                                grid[i][j] = cells[i][j].type + cells[i][j].subtype;
+                        }
+                        else
+                            grid[i][j] = "00";
+                    }
+                }
+                
+                
+                worker.postMessage( { 'type' : 'statusUpdate', 'grid' : grid,  'resources' : enemyResorces, 'enemyBuildable' : enemyBuildable } );
+            }
+            
+            function WON()
+            {
+                $("#bkg_audio").get(0).pause();
+                worker.terminate();
+                gameOver = true;
+                $("#gameover").text("You won!");
+                $("#gameover").css('color', '#ffffff' );
+                $("#gameover").css('background-color', '#0000ff' );
+                $("#gameover").css('font-size', '80px' );
+                
+                // Play the sound
+                $("#won_snd").get(0).play();
+            }
+            
+            function LOST()
+            {
+                $("#bkg_audio").get(0).pause();
+                worker.terminate();
+                gameOver = true;
+                $("#gameover").text("You lost!");
+                $("#gameover").css('color', '#ffffff' );
+                $("#gameover").css('font-size', '80px' );
+
+                // Play the sound
+                $("#lost_snd").get(0).play();
+            }
+            
+            var gameOverOpacity = 0;
+            function GameOverAnymation()
+            {
+                if( gameOverOpacity >= 1 )
+                    return;
+                
+                gameOver = true;
+                gameOverOpacity += 0.1;
+                $("#gameover").css('opacity', gameOverOpacity );  
+                $("#gameover").css('z-index', 1000 );
+                $("#instructions").css('z-index', 0 );
+            }
+            
+            function render()
+            {
+                if( gameOver )
+                {
+                    GameOverAnymation();
+                    requestAnimationFrame( render );
+                    return;
+                }
+                // Show resources
+                $("#resources").text("Resources: " + Math.floor(playerResources));                
+                
+                updateSize();
+                
+                var delta = clock.getDelta();
+                UpdateBoard(delta);
+                
+                // Build Action
+                if( chosenBuilding != 0 )
+                {
+                    ShowBuildableArea();
+                    
+                    // update the picking ray with the camera and mouse position	
+                    raycaster.setFromCamera( mouse, camera );	
+
+                    // calculate objects intersecting the picking ray
+                    var intersects = raycaster.intersectObjects( scene.children );
+                    posI = -1; posJ = -1;
+                    
+                    buildHelper.material.map = tex[chosenBuilding];
+
+                    for ( var i = 0; i < intersects.length; i++ )
+                    {
+                        if( intersects[ i ].object.name == 'ground' )
+                        {
+                            
+                            posI = Math.floor( (intersects[ i ].point.x + BOARD_SIZE / 2) / (CELL_SIZE) );
+                            posJ = Math.floor( (intersects[ i ].point.y + BOARD_SIZE / 2) / (CELL_SIZE) );
+                        }
+                        else if( intersects[ i ].object.name == 'front')
+                        {
+                            buildHelper.position.x = intersects[ i ].point.x;
+                            buildHelper.position.y = intersects[ i ].point.y;
+                            buildHelper.position.z = intersects[ i ].point.z;
+                            
+                            buildHelper.material.color.setRGB( 255, 0, 0);
+                            buildHelper.material.needsUpdate = true;
+                        }
+                    }
+                    
+                    if( posI != -1 && posJ != -1 )
+                    {
+                        var reg = FromGridToRegular( posI, posJ );
+                    
+                        buildHelper.position.x = reg.x;
+                        buildHelper.position.y = reg.y;
+                        buildHelper.position.z = CELL_SIZE/2;
+                        
+                        if( playerBuildable[posI][posJ].buildable && playerResources >= costs[chosenBuilding] )
+                        {
+                            buildHelper.material.color.setRGB( 0, 255, 0);
+                        }
+                        else
+                        {
+                            buildHelper.material.color.setRGB( 255, 0, 0);
+                        }
+                        buildHelper.material.needsUpdate = true;
+                    }
+                }
+                
+                if( keyboard.pressed("w") )
+                {
+                    
+                }
+                if( keyboard.pressed("a") )
+                {
+                    
+                }
+                if( keyboard.pressed("s") )
+                {
+                    
+                }	
+                if( keyboard.pressed("d") )
+                {
+                    
+                }
+                if( keyboard.pressed("space") )
+                {
+                    $("#instructions").show();
+                }
+                if( keyboard.pressed("1") )
+                {
+                    
+                }
+                if( keyboard.pressed("2") )
+                {
+                    
+                }
+                if( keyboard.pressed("3") )
+                {
+                   
+                }
+                if( keyboard.pressed("4") )
+                {
+                    
+                }
+
+                requestAnimationFrame( render );
+                renderer.render( scene, camera );
+            }
+            //window.onload = init;
+        </script>
+    </body>    
+</html>
