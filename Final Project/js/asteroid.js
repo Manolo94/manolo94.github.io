@@ -8,7 +8,7 @@ function Asteroid( size, color, horizontalSpeed, verticalSpeed ) {
         verticalSpeed: verticalSpeed,
         timeScale: 1
   }  
-      
+  //color of the asteroid
   switch( color ) {
       case 'ice':
           colorValue = 0x56C1DC;
@@ -20,21 +20,21 @@ function Asteroid( size, color, horizontalSpeed, verticalSpeed ) {
           colorValue = 0xBA55D3;
       break;        
   }
-        
+  //keep maxParticles between 10000 and 100000      
   particleSystem = new THREE.GPUParticleSystem( { maxParticles: 10000 } );
         
-  options =           {
-                        position: new THREE.Vector3(),
-                        positionRandomness: 1,
-                        velocity: new THREE.Vector3(),
-                        velocityRandomness: 1,
-                        color: colorValue,
-                        colorRandomness: .2,
-                        turbulence: .15,
-                        lifetime: 1,
-                        size: size,
-                        sizeRandomness: 1
-                      };
+  options = {
+                position: new THREE.Vector3(),
+                positionRandomness: 1,
+                velocity: new THREE.Vector3(),
+                velocityRandomness: 1,
+                color: colorValue,
+                colorRandomness: .2,
+                turbulence: .15,
+                lifetime: 1,
+                size: size,
+                sizeRandomness: 1
+            };
         
   scene.add( particleSystem );
         
@@ -72,6 +72,9 @@ function Asteroid( size, color, horizontalSpeed, verticalSpeed ) {
   asteroid.position = new THREE.Vector3( 0, 0, 0 ); 
   scene.add( asteroid );
         
+  //setters. 
+  //Maybe, we could add rotation x, y, and z 
+  //separately instead of rotating through every axis
   this.positionX = function( value ){
     options.position.x = value;
     asteroid.position.x = value;
