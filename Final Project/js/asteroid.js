@@ -63,37 +63,37 @@ function Asteroid( size, color, horizontalSpeed, verticalSpeed ) {
                        value: 0.0 
                        }
                        },
-                       vertexShader: document.getElementById( 'vertexShader' ).textContent,
-                       fragmentShader: document.getElementById( 'fragmentShader' ).textContent
+                       vertexShader: document.getElementById( 'asteroidVertexShader' ).textContent,
+                       fragmentShader: document.getElementById( 'asteroidFragmentShader' ).textContent
                        });
         
-  asteroid = new THREE.Mesh( geometry, material );
-  asteroid.castShadow = true;
-  asteroid.position = new THREE.Vector3( 0, 0, 0 ); 
-  scene.add( asteroid );
+  this.asteroid = new THREE.Mesh( geometry, material );
+  this.asteroid.castShadow = true;
+  this.asteroid.position = new THREE.Vector3( 0, 0, 0 ); 
+  scene.add( this.asteroid );
         
   //setters. 
   //Maybe, we could add rotation x, y, and z 
   //separately instead of rotating through every axis
   this.positionX = function( value ){
     options.position.x = value;
-    asteroid.position.x = value;
+    this.asteroid.position.x = value;
   }
     
   this.positionY = function( value ){
     options.position.y = value;
-    asteroid.position.y = value;
+    this.asteroid.position.y = value;
   }
       
   this.positionZ = function( value ){
     options.position.z = value;
-    asteroid.position.z = value;
+    this.asteroid.position.z = value;
   }
        
   this.rotationXYZ = function( value ){
-    asteroid.rotation.x += value;
-    asteroid.rotation.y += value;
-    asteroid.rotation.z += value;
+    this.asteroid.rotation.x += value;
+    this.asteroid.rotation.y += value;
+    this.asteroid.rotation.z += value;
   }
   
   this.horizontalSpeed = function( value ){
