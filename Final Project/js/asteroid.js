@@ -103,7 +103,16 @@ function Asteroid( size, color, horizontalSpeed, verticalSpeed ) {
   this.verticalSpeed = function( value ){
       spawnerOptions.verticalSpeed = value;
   }
-       
+  
+  this.normalize = function(){
+      options.position.normalize;
+      this.asteroid.position.normalize;
+  }
+  
+  this.multiplyScalar = function( value ){
+      options.position.multiplyScalar( value );
+      this.asteroid.position.multiplyScalar( value );
+  }    
   this.partSystem = particleSystem;
   this.option = options;
   this.spawnOptions = spawnerOptions;     
