@@ -1,6 +1,6 @@
 function Asteroid( size, color, horizontalSpeed, verticalSpeed ) {
     
-  var colorValue, material, asteroid, texture, geometry, particleSystem, options, spawnerOptions;
+  var colorValue, material, asteroid, texture, geometry, particleSystem, options, spawnerOptions, light;
   
   spawnerOptions = {
         spawnRate: 15000,
@@ -12,12 +12,15 @@ function Asteroid( size, color, horizontalSpeed, verticalSpeed ) {
   switch( color ) {
       case 'ice':
           colorValue = 0x56C1DC;
+          light = new THREE.PointLight(0x0000ff, 20, 100);                                
       break;
       case 'fire':
           colorValue = 0xEA3500;
+          light = new THREE.PointLight(0xff0000, 20, 100);                             
       break;
       default:
           colorValue = 0xBA55D3;
+          light = new THREE.PointLight(0x1111ff, 20, 180);
       break;        
   }
   //keep maxParticles between 10000 and 100000      
@@ -78,16 +81,19 @@ function Asteroid( size, color, horizontalSpeed, verticalSpeed ) {
   this.positionX = function( value ){
     options.position.x = value;
     this.asteroid.position.x = value;
+    light.position.x = value;
   }
     
   this.positionY = function( value ){
     options.position.y = value;
     this.asteroid.position.y = value;
+      light.position.y = value;
   }
       
   this.positionZ = function( value ){
     options.position.z = value;
     this.asteroid.position.z = value;
+    light.position.z = value;
   }
        
   this.rotationXYZ = function( value ){
