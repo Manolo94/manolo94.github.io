@@ -551,21 +551,21 @@
                 
                 // Create asteroids
                 //new Asteroid(size, color, horizontalSpeed, verticalSpeed)        
-//                asteroid1 = new Asteroid( 4, 'ice', 1, 1 );
-//                asteroid2 = new Asteroid( 4, 'fire', 2, 1 );
-//                asteroid3 = new Asteroid( 4, 'nova', 1, 1 );
-                
                 for( var i = 0; i < 25; i++)
                 {
-                    //25 asteroids, random color, size 4
-                    var asteroid = new Asteroid( 4, asteroidType[Math.floor(Math.random() * 3) + 0], Math.floor(Math.random() * 2) + 1, 1);
-                    asteroids.push(asteroid);
+                    //25 asteroids, random position around planet, random color, size 4
+                    var size = Math.floor(Math.random() * 4) + 2;
+                    var color = asteroidType[Math.floor(Math.random() * 3) + 0];
+                    var horizontalSpeed = Math.floor(Math.random() * 2) + 1;
+                    var asteroid = new Asteroid( size, color, horizontalSpeed, 1);
                     
-                    asteroids[i].positionX( Math.random() * 2 - 1 );
-                    asteroids[i].positionY( Math.random() * 2 - 1 );
-                    asteroids[i].positionZ( Math.random() * 2 - 1 );
-                    asteroids[i].normalize();
-                    asteroids[i].multiplyScalar(200);
+                    asteroid.positionX( Math.random() * 2 - 1 );
+                    asteroid.positionY( Math.random() * 2 - 1 );
+                    asteroid.positionZ( Math.random() * 2 - 1 );
+                    asteroid.normalize();
+                    asteroid.multiplyScalar(200);
+                    
+                    asteroids.push(asteroid);
                 }
                 
                 //point2.position.x = 10;
@@ -713,9 +713,9 @@
                 cameraAngle += delta*Math.PI / 40;
                 if( cameraAngle >= 2*Math.PI )
                     cameraAngle = 0;
-                
-                camera.position.x = Math.sin( cameraAngle )*75;
-                camera.position.y = Math.cos( cameraAngle )*75;
+
+                camera.position.x = Math.sin( cameraAngle ) *75;
+                camera.position.y = Math.cos( cameraAngle ) *75;
                 
                 camera.lookAt(debugSphere.position);
                 
