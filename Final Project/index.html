@@ -377,8 +377,6 @@
             var asteroidType = ['ice', 'fire', 'nova'];
             var asteroids = [];
             
-            var astPoint1, astPoint2, astPoint3;
-            
             var windowWidth, windowHeight;
             
             var debugSphere;
@@ -557,21 +555,18 @@
 //                asteroid2 = new Asteroid( 4, 'fire', 2, 1 );
 //                asteroid3 = new Asteroid( 4, 'nova', 1, 1 );
                 
-                for( var i = 0; i < 2; i++)
+                for( var i = 0; i < 25; i++)
                 {
-                    var asteroid = new Asteroid( 4, asteroidType[Math.floor(Math.random() * 3)], Math.floor(Math.random() * 2) + 1, 1);
+                    //25 asteroids, random color, size 4
+                    var asteroid = new Asteroid( 4, asteroidType[Math.floor(Math.random() * 3) + 0], Math.floor(Math.random() * 2) + 1, 1);
                     asteroids.push(asteroid);
+                    
+                    asteroids[i].positionX( Math.random() * 2 - 1 );
+                    asteroids[i].positionY( Math.random() * 2 - 1 );
+                    asteroids[i].positionZ( Math.random() * 2 - 1 );
+                    asteroids[i].normalize();
+                    asteroids[i].multiplyScalar(200);
                 }
-                
-                
-                // Light
-                astPoint1 = new THREE.PointLight(0x0000ff, 20, 100);                
-                astPoint2 = new THREE.PointLight(0xff0000, 20, 100);                
-                astPoint3 = new THREE.PointLight(0x1111ff, 20, 180);
-                
-                scene.add(astPoint1);
-                scene.add(astPoint2);
-                scene.add(astPoint3);
                 
                 //point2.position.x = 10;
                 //point2.position.y = -10;
@@ -684,51 +679,30 @@
 
                       if (delta > 0) {
 
-                          //move the asteroids
-                          
+                          //move the asteroids                         
                           for(var i = 0; i < asteroids.length; i++)
                           {
-                              asteroids[i].positionX( Math.random() * 2 - 1 );
-                              asteroids[i].positionY( Math.random() * 2 - 1 );
-                              asteroids[i].positionZ( Math.random() * 2 - 1 );
                               asteroids[i].rotationXYZ(0.02); 
-                              asteroids[i].normalize();
-                              asteroids[i].multiplyScalar(200);
                           }
                           
 //                          asteroid1.positionX(-Math.sin(tick * asteroid1.spawnOptions.horizontalSpeed) * 60);
 //                          asteroid1.rotationXYZ(0.02);                          
-//                          astPoint1.position.x = asteroid1.asteroid.position.x;
-//                          astPoint1.position.y = asteroid1.asteroid.position.y;
-//                          astPoint1.position.z = asteroid1.asteroid.position.z;
 
 //                          asteroid2.positionX(Math.sin(tick * asteroid2.spawnOptions.horizontalSpeed) * 50);
 //                          asteroid2.rotationXYZ(0.02);
-//                          astPoint2.position.x = asteroid2.asteroid.position.x;
-//                          astPoint2.position.y = asteroid2.asteroid.position.y;
-//                          astPoint2.position.z = asteroid2.asteroid.position.z;
 //
 //                          asteroid3.positionX(Math.sin(tick * asteroid3.spawnOptions.horizontalSpeed) * 40);
 //                          asteroid3.rotationXYZ(0.02);
-//                          astPoint3.position.x = asteroid3.asteroid.position.x;
-//                          astPoint3.position.y = asteroid3.asteroid.position.y;
-//                          astPoint3.position.z = asteroid3.asteroid.position.z;
 
                         for (var x = 0; x < spawnRate * delta; x++) {
                             //spawn particles
-//                            asteroid1.partSystem.spawnParticle(asteroid1.option);
-//                            asteroid2.partSystem.spawnParticle(asteroid2.option);
-//                            asteroid3.partSystem.spawnParticle(asteroid3.option);
                             for(var i = 0; i < asteroids.length; i++)
                             {
-                              asteroids[i].partSystem.spawnParticle(asteroids[i].option);
+                                asteroids[i].partSystem.spawnParticle(asteroids[i].option);
                             }
                         }
                       }
                       //update the particle system
-//                      asteroid1.partSystem.update(tick);
-//                      asteroid2.partSystem.update(tick);
-//                      asteroid3.partSystem.update(tick);
                       for(var i = 0; i < asteroids.length; i++)
                       {
                           asteroids[i].partSystem.update(tick);
