@@ -556,14 +556,24 @@
                     //25 asteroids, random position around planet, random color, size 4
                     var size = Math.floor(Math.random() * 4) + 2;
                     var color = asteroidType[Math.floor(Math.random() * 3) + 0];
-                    var horizontalSpeed = Math.floor(Math.random() * 2) + 1;
-                    var asteroid = new Asteroid( size, color, horizontalSpeed, 1);
+                    var asteroid = new Asteroid( size, color, new THREE.Vector3());
                     
-                    asteroid.positionX( Math.random() * 2 - 1 );
-                    asteroid.positionY( Math.random() * 2 - 1 );
-                    asteroid.positionZ( Math.random() * 2 - 1 );
-                    asteroid.normalize();
-                    asteroid.multiplyScalar(200);
+                    var alpha = Math.random()*Math.PI*2;
+                    var beta = Math.random()*Math.PI*2;
+                    var sphereRadius = 200;
+                    
+                    var circleRadius = Math.cos(beta)*sphereRadius;
+                    
+                    asteroid.positionX( Math.cos(alpha)*circleRadius );
+                    asteroid.positionY( Math.sin(alpha)*circleRadius );
+                    asteroid.positionZ( Math.sin(beta)*sphereRadius );
+                    
+                    var velTowardPlanet = asteroid.asteroid.position.clone().negate().normalize().multiplyScalar(0.1);
+                    console.log(velTowardPlanet);
+                  asteroid.option.velocity = velTowardPlanet;
+                    
+                  //  asteroid.normalize();
+                    //asteroid.multiplyScalar(200);
                     
                     asteroids.push(asteroid);
                 }
@@ -629,6 +639,44 @@
                 debugSphere.geometry.computeVertexNormals();
 			}
             
+            function collideAsteroid( asteroid )
+            {
+                // update the picking ray with the camera and mouse position	
+                raycaster.set( asteroid.asteroid.position.clone(), asteroid.option.velocity.clone().normalize() );
+                
+                if( asteroid.asteroid.position.length() > 40 || asteroid.asteroid.position.length() < 20 )
+                    return;
+
+                // calculate objects intersecting the picking ray
+                var intersects = raycaster.intersectObjects( [debugSphere] );
+                
+                if( intersects.length > 0 )
+                    {                        
+                        extrudeFaceInsideSphere( intersects[0].face.a, debugSphere.geometry, 2, debugSphere.position );
+                        extrudeFaceInsideSphere( intersects[0].face.b, debugSphere.geometry, 2, debugSphere.position );
+                        extrudeFaceInsideSphere( intersects[0].face.c, debugSphere.geometry, 2, debugSphere.position );
+                    }
+                
+//                    for( var i = 0; i < debugSphere.geometry.vertices.length; i++ )
+//                    {                        
+//                        //var v = debugSphere.geometry.vertices[i].clone();
+//                        //v.add( sPosition );
+//                        //v.normalize();
+//                        var r = Math.random()*0.5 - 0.25;
+//                        
+//                        debugSphere.geometry.vertices[i].x -= debugSphere.geometry.vertices[i].normalv.x*r;
+//                        debugSphere.geometry.vertices[i].y -= v.y*r;
+//                        debugSphere.geometry.vertices[i].z -= v.z*r;
+//                    }
+                    
+                debugSphere.geometry.verticesNeedUpdate = true;
+                debugSphere.geometry.normalsNeedUpdate = true;
+                
+                /* Compute normals */
+                debugSphere.geometry.computeFaceNormals();
+                debugSphere.geometry.computeVertexNormals();
+            }
+            
             function updateSize()
             {
                 if( windowWidth != window.innerWidth || windowHeight != window.innerHeight )
@@ -693,6 +741,8 @@
 //
 //                          asteroid3.positionX(Math.sin(tick * asteroid3.spawnOptions.horizontalSpeed) * 40);
 //                          asteroid3.rotationXYZ(0.02);
+                          
+                          
 
                         for (var x = 0; x < spawnRate * delta; x++) {
                             //spawn particles
@@ -706,11 +756,14 @@
                       for(var i = 0; i < asteroids.length; i++)
                       {
                           asteroids[i].partSystem.update(tick);
+                          asteroids[i].update();
+                          collideAsteroid(asteroids[i]);
+                          //asteroids[i].positionX(Math.sin(tick * 1) * 40);
                       }
                 
                 //--------------------------------------------------------
                 
-                cameraAngle += delta*Math.PI / 40;
+                cameraAngle += delta*Math.PI / 10;
                 if( cameraAngle >= 2*Math.PI )
                     cameraAngle = 0;
 
