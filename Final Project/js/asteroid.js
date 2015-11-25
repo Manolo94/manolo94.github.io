@@ -1,11 +1,10 @@
-function Asteroid( size, color, horizontalSpeed, verticalSpeed ) {
+function Asteroid( size, color, velocity ) {
     
   var colorValue, material, asteroid, texture, geometry, particleSystem, options, spawnerOptions, light;
   
   spawnerOptions = {
-        spawnRate: 15000,
-        horizontalSpeed: horizontalSpeed,
-        verticalSpeed: verticalSpeed,
+        spawnRate: 3000,
+        velocity: velocity,
         timeScale: 1
   }  
   //color of the asteroid
@@ -29,8 +28,8 @@ function Asteroid( size, color, horizontalSpeed, verticalSpeed ) {
   options = {
                 position: new THREE.Vector3(),
                 positionRandomness: 1,
-                velocity: new THREE.Vector3(),
-                velocityRandomness: 1,
+                velocity: velocity,
+                velocityRandomness: 0.2,
                 color: colorValue,
                 colorRandomness: .2,
                 turbulence: .15,
@@ -118,7 +117,14 @@ function Asteroid( size, color, horizontalSpeed, verticalSpeed ) {
   this.multiplyScalar = function( value ){
       options.position.multiplyScalar( value );
       this.asteroid.position.multiplyScalar( value );
-  }    
+  }
+  this.update = function()
+  {
+      this.positionX( this.asteroid.position.x + options.velocity.x );
+      this.positionY( this.asteroid.position.y + options.velocity.y );
+      this.positionZ( this.asteroid.position.z + options.velocity.z );
+  }
+  
   this.partSystem = particleSystem;
   this.option = options;
   this.spawnOptions = spawnerOptions;     
