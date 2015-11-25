@@ -53,6 +53,7 @@
 		</style>
         
         <script src="js/jquery_v1.9.0.js"></script>
+        <script src="js/controls.js"></script>
         <script src="libs/three.js"></script>
         <script src="libs/threex.keyboardstate.js"></script>
         <script src="libs/threex.text.js"></script>
@@ -372,7 +373,8 @@
         <script>
             var clock = new THREE.Clock();
             
-            var camera, scene, renderer;
+            var camera, cameraController, scene, renderer;
+            cameraHorizontalAngle = 0, cameraVerticalAngle = 0;
             var pointer, raycaster, mouse = {};
             var asteroidType = ['ice', 'fire', 'nova'];
             var asteroids = [];
@@ -458,6 +460,9 @@
                 
                 camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 0.1, 10000 );
                 camera.position.y = 10;
+                
+                // Generate the camera controller
+                cameraController = new Controls.PlanetCameraRotationController( camera );
                 
                 scene = new THREE.Scene();
                 scene.fog = new THREE.FogExp2( 0x000000, 0.06 );
@@ -576,6 +581,7 @@
                 
                 document.addEventListener( 'mousemove', onDocumentMouseMove, false );
                 document.addEventListener( 'mousedown', onDocumentMouseDown, false );
+                document.addEventListener( 'mouseup'  , onDocumentMouseUp,   false );
                 
                 raycaster = new THREE.Raycaster();
                 
@@ -589,7 +595,8 @@
 			}
             
             function onDocumentMouseDown( event ) 
-            {                
+            {
+                cameraController.Start();
                 // calculate mouse position in normalized device coordinates
                 // (-1 to +1) for both components
 
@@ -629,6 +636,11 @@
                 debugSphere.geometry.computeVertexNormals();
 			}
             
+            function onDocumentMouseUp( event )
+            {
+                cameraController.Stop();
+            }
+            
             function updateSize()
             {
                 if( windowWidth != window.innerWidth || windowHeight != window.innerHeight )
@@ -656,11 +668,11 @@
             }
             
             var i = 0;
-            var cameraAngle = 0;
             var delta = 0;
             function render()
             {
                 updateSize();
+                cameraController.UpdateCameraPosition();
                 
                 // Update the fireball
                 customUniforms.time.value += delta;
@@ -710,12 +722,13 @@
                 
                 //--------------------------------------------------------
                 
-                cameraAngle += delta*Math.PI / 40;
+                /*cameraAngle += delta*Math.PI / 40;
                 if( cameraAngle >= 2*Math.PI )
                     cameraAngle = 0;
 
                 camera.position.x = Math.sin( cameraAngle ) *75;
                 camera.position.y = Math.cos( cameraAngle ) *75;
+                camera.position.z = */
                 
                 camera.lookAt(debugSphere.position);
                 
