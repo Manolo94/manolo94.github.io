@@ -418,6 +418,8 @@ THREE.GPUParticleContainer = function(maxParticles, particleSystem) {
     self.posStart.array[i * 4 + 1] = position.y + ((particleSystem.random()) * positionRandomness); // - ( velocity.y * particleSystem.random() ); //y
     self.posStart.array[i * 4 + 2] = position.z + ((particleSystem.random()) * positionRandomness); // - ( velocity.z * particleSystem.random() ); //z
     self.posStart.array[i * 4 + 3] = self.time + (particleSystem.random() * 2e-2); //startTime
+      
+      //console.log("velocity " + velocity);
 
     if (smoothPosition === true) {
       self.posStart.array[i * 4 + 0] += -(velocity.x * particleSystem.random()); //x
