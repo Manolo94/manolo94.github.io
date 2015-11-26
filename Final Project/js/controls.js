@@ -24,6 +24,11 @@ Controls.PlanetCameraRotationController = function ( camera )
     
     this.UpdateCameraPosition = function()
     {
+        if( controlAngleVertical > Math.PI / 2 - 0.1 )
+            controlAngleVertical = Math.PI / 2 - 0.1;
+        if( controlAngleVertical < -Math.PI / 2 + 0.1 )
+            controlAngleVertical = -Math.PI / 2 + 0.1;
+        
         var circleRadius = distanceFromCenter*Math.cos( controlAngleVertical );    
 
         targetCamera.position.x = Utils.GetXGlobalPositionfromLocal( 0, 0, circleRadius, 0, controlAngleHorizontal );
@@ -35,16 +40,16 @@ Controls.PlanetCameraRotationController = function ( camera )
     this.Stop = function () { enabled = false; };
 
     var onMouseMove = function ( event ) 
-    {
+    {        
         if( enabled === false ) return;        
         
         var movementX = event.movementX || event.mozMovementX || event.webkitMovementX || 0;
         var movementY = event.movementY || event.mozMovementY || event.webkitMovementY || 0;
 
         controlAngleHorizontal += movementX * 0.002;
-        controlAngleVertical  -= movementY * 0.002;
+        controlAngleVertical  += movementY * 0.002;
         
-        console.log( 'h: ' + controlAngleHorizontal + ' v: ' + controlAngleVertical );
+        //console.log( 'h: ' + controlAngleHorizontal + ' v: ' + controlAngleVertical );
     };
     
     document.addEventListener( 'mousemove', onMouseMove, false );
