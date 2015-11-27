@@ -1,23 +1,25 @@
-function Asteroid( size, color, horizontalSpeed, verticalSpeed ) {
+function Asteroid( size, color, velocity ) {
     
-  var colorValue, material, asteroid, texture, geometry, particleSystem, options, spawnerOptions;
+  var colorValue, material, asteroid, texture, geometry, particleSystem, options, spawnerOptions, light;
   
   spawnerOptions = {
-        spawnRate: 15000,
-        horizontalSpeed: horizontalSpeed,
-        verticalSpeed: verticalSpeed,
+        spawnRate: 3000,
+        velocity: velocity,
         timeScale: 1
   }  
   //color of the asteroid
   switch( color ) {
       case 'ice':
           colorValue = 0x56C1DC;
+          light = new THREE.PointLight(0x0000ff, 20, 100);                                
       break;
       case 'fire':
           colorValue = 0xEA3500;
+          light = new THREE.PointLight(0xff0000, 20, 100);                             
       break;
       default:
           colorValue = 0xBA55D3;
+          light = new THREE.PointLight(0x1111ff, 20, 180);
       break;        
   }
   //keep maxParticles between 10000 and 100000      
@@ -26,8 +28,8 @@ function Asteroid( size, color, horizontalSpeed, verticalSpeed ) {
   options = {
                 position: new THREE.Vector3(),
                 positionRandomness: 1,
-                velocity: new THREE.Vector3(),
-                velocityRandomness: 1,
+                velocity: velocity,
+                velocityRandomness: 0.2,
                 color: colorValue,
                 colorRandomness: .2,
                 turbulence: .15,
@@ -78,16 +80,19 @@ function Asteroid( size, color, horizontalSpeed, verticalSpeed ) {
   this.positionX = function( value ){
     options.position.x = value;
     this.asteroid.position.x = value;
+    light.position.x = value;
   }
     
   this.positionY = function( value ){
     options.position.y = value;
     this.asteroid.position.y = value;
+      light.position.y = value;
   }
       
   this.positionZ = function( value ){
     options.position.z = value;
     this.asteroid.position.z = value;
+    light.position.z = value;
   }
        
   this.rotationXYZ = function( value ){
@@ -103,7 +108,23 @@ function Asteroid( size, color, horizontalSpeed, verticalSpeed ) {
   this.verticalSpeed = function( value ){
       spawnerOptions.verticalSpeed = value;
   }
-       
+  
+  this.normalize = function(){
+      options.position.normalize;
+      this.asteroid.position.normalize;
+  }
+  
+  this.multiplyScalar = function( value ){
+      options.position.multiplyScalar( value );
+      this.asteroid.position.multiplyScalar( value );
+  }
+  this.update = function()
+  {
+      this.positionX( this.asteroid.position.x + options.velocity.x );
+      this.positionY( this.asteroid.position.y + options.velocity.y );
+      this.positionZ( this.asteroid.position.z + options.velocity.z );
+  }
+  
   this.partSystem = particleSystem;
   this.option = options;
   this.spawnOptions = spawnerOptions;     
