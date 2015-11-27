@@ -1,7 +1,35 @@
+var previousShield = -1;
+
 function onDocumentMouseMove( event ) 
 {
     mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
     mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+    
+    // update the picking ray with the camera and mouse position	
+    raycaster.setFromCamera( mouse, camera );	
+
+    // calculate objects intersecting the picking ray
+    var intersects = raycaster.intersectObjects( [defenseSphere] );
+    
+    if( intersects.length > 0 )
+    {
+        var index = calculateShield( defenseSphere.geometry, intersects[0].face );
+        
+        changeDefenseAppearance( index, 1 );
+        
+        if( previousShield != -1 && previousShield != index )
+            changeDefenseAppearance( previousShield, 0 );
+        
+        previousShield = index;
+    }
+    else if( previousShield != -1 && previousShield != index )
+    {
+        if( previousShield != -1 && previousShield != index )
+            changeDefenseAppearance( previousShield, 0 );
+        
+        previousShield = -1;
+    }
+    
 }
 
 function onDocumentMouseDown( event ) 
@@ -14,12 +42,19 @@ function onDocumentMouseDown( event )
     mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
 
     // update the picking ray with the camera and mouse position	
-    /*raycaster.setFromCamera( mouse, camera );	
+    raycaster.setFromCamera( mouse, camera );	
 
     // calculate objects intersecting the picking ray
-    var intersects = raycaster.intersectObjects( [planetSphere] );
-
+    var intersects = raycaster.intersectObjects( [defenseSphere] );
+    
     if( intersects.length > 0 )
+    {
+        var index = calculateShield( defenseSphere.geometry, intersects[0].face );
+        
+        changeDefenseAppearance( index, 2 );
+    }
+
+    /*if( intersects.length > 0 )
         {                        
             extrudeFaceInsideSphere( intersects[0].face.a, planetSphere.geometry, 2, planetSphere.position );
             extrudeFaceInsideSphere( intersects[0].face.b, planetSphere.geometry, 2, planetSphere.position );

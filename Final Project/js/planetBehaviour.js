@@ -106,10 +106,23 @@ function CreatePlanetSphere()
     planetSphere.geometry.computeVertexNormals();
 }
 
-var sum = 0;
 // Push back materials
 var materials = [];
 
+var materialsShieldType = [new THREE.MeshPhongMaterial({color: 'blue', fog: false, transparent:true, opacity:0.2}),
+                           new THREE.MeshPhongMaterial({color: 'blue', fog: false, transparent:true, opacity:0.6}),
+                            new THREE.MeshPhongMaterial({color: 'blue', fog: false, side: THREE.DoubleSide}),
+                          new THREE.MeshPhongMaterial({color: 'red', fog: false, side: THREE.DoubleSide}),
+                          new THREE.MeshPhongMaterial({color: 'gray', fog: false, side: THREE.DoubleSide}),
+                          new THREE.MeshPhongMaterial({color: 'yellow', fog: false, side: THREE.DoubleSide}),
+                          new THREE.MeshPhongMaterial({color: 'green', fog: false, side: THREE.DoubleSide}),
+                          new THREE.MeshPhongMaterial({color: 'white', fog: false, side: THREE.DoubleSide}),
+                          new THREE.MeshPhongMaterial({color: 'purple', fog: false, side: THREE.DoubleSide}),
+                          new THREE.MeshPhongMaterial({color: 'pink', fog: false, side: THREE.DoubleSide}),
+                          new THREE.MeshPhongMaterial({color: 'magenta', fog: false, side: THREE.DoubleSide})];
+
+//number of shields per axis
+var nsa = 4;
 
 function CreateDefenseSphere()
 {
@@ -127,8 +140,7 @@ function CreateDefenseSphere()
         vertex.normalize().multiplyScalar(DEFENSE_RADIUS);
     }
 
-    //number of shields per axis
-    var nsa = 8;
+
 
     g.verticesNeedUpdate = true;
     g.normalsNeedUpdate = true;
@@ -143,49 +155,24 @@ function CreateDefenseSphere()
 //                    
 //                    if( i > g.faces.length / 2 )
 //                        g.faces[i].materialIndex = 1;
+        
 
-        var vertexa = g.vertices[ g.faces[f].a ].clone();
-        var vertexb = g.vertices[ g.faces[f].b ].clone();
-        var vertexc = g.vertices[ g.faces[f].c ].clone();
 
-        var vertex = new THREE.Vector3( (vertexa.x + vertexb.x + vertexc.x) / 3, (vertexa.y + vertexb.y + vertexc.y) / 3, (vertexa.z + vertexb.z + vertexc.z) / 3 );
+        var index = calculateShield( g, g.faces[f] );
 
-        var beta = Math.asin(vertex.z/DEFENSE_RADIUS);
-
-        var d = vertex.x/(Math.cos(beta) * DEFENSE_RADIUS);
-        if( d > 1 )
-            d = 1;
-        if( d < -1 )
-            d = -1;
-
-        var alpha = Math.acos( d );
-
-        if( vertex.z < 0 )
-            beta += Math.PI
-
-        if( vertex.x < 0 )
-            alpha += Math.PI;   
-
-        console.log("test= " + (alpha) + " " +vertex.x/(Math.cos(beta) * DEFENSE_RADIUS) );
-
-        var i = Math.floor((alpha+Math.PI/2)/(2 * Math.PI) * nsa);
-        var j = Math.floor((beta+Math.PI/2)/(2 * Math.PI) * nsa);
-
-        console.log( "alpha =" + alpha + " beta =" + beta + " i =" + i + " j =" + j);
-
-        if(shields[ i + j * nsa] === undefined)
+        if(shields[ index ] === undefined)
         {
-            shields[ i + j * nsa] = new Shield();
+            shields[ index ] = new Shield();
         }
 
-        shields[ i + j * nsa].AddFaceIndex( f );
+        shields[ index ].AddFaceIndex( f );
 
     }
     
     // For every shield
     for( var s = 0; s < shields.length; s++ )
     {
-        materials[s] = new THREE.MeshPhongMaterial({color: 'blue', fog: false, transparent:true, opacity:0.1});
+        materials[s] = materialsShieldType[0];
         
         if( shields[s] === undefined)
             continue;
@@ -195,19 +182,7 @@ function CreateDefenseSphere()
                 g.faces[ shields[s].faceIndex[f] ].materialIndex = s;
         }
     }
-    
-    /*new THREE.MeshPhongMaterial({color: 'blue', fog: false, transparent:true, opacity:0.1}),
-                      new THREE.MeshPhongMaterial({color: 'blue', fog: false, side: THREE.DoubleSide}),
-                      new THREE.MeshPhongMaterial({color: 'red', fog: false, side: THREE.DoubleSide}),
-                      new THREE.MeshPhongMaterial({color: 'gray', fog: false, side: THREE.DoubleSide}),
-                      new THREE.MeshPhongMaterial({color: 'yellow', fog: false, side: THREE.DoubleSide}),
-                      new THREE.MeshPhongMaterial({color: 'green', fog: false, side: THREE.DoubleSide}),
-                      new THREE.MeshPhongMaterial({color: 'white', fog: false, side: THREE.DoubleSide}),
-                      new THREE.MeshPhongMaterial({color: 'purple', fog: false, side: THREE.DoubleSide}),
-                      new THREE.MeshPhongMaterial({color: 'pink', fog: false, side: THREE.DoubleSide}),
-                      new THREE.MeshPhongMaterial({color: 'magenta', fog: false, side: THREE.DoubleSide})];*/
-    
-    
+        
     defenseSphere = new THREE.Mesh( g, new THREE.MeshFaceMaterial() );            
 
 
@@ -229,13 +204,45 @@ function CreateDefenseSphere()
     defenseSphere.geometry.computeVertexNormals();
 }
 
-function changeDefenseAppearance()
+function calculateShield( geometry, face )
 {
-    console.log("The shield is" + sum%shields.length);
+    var vertexa = geometry.vertices[ face.a ].clone();
+    var vertexb = geometry.vertices[ face.b ].clone();
+    var vertexc = geometry.vertices[ face.c ].clone();
+
+    var vertex = new THREE.Vector3( (vertexa.x + vertexb.x + vertexc.x) / 3, (vertexa.y + vertexb.y + vertexc.y) / 3, (vertexa.z + vertexb.z + vertexc.z) / 3 );
     
-    materials[sum%materials.length] = new THREE.MeshPhongMaterial({color: 'blue', fog: false, side: THREE.DoubleSide});
+    var beta = Math.asin(vertex.z/DEFENSE_RADIUS);
+
+    var d = vertex.x/(Math.cos(beta) * DEFENSE_RADIUS);
+    if( d > 1 )
+        d = 1;
+    if( d < -1 )
+        d = -1;
+
+    var alpha = Math.acos( d );
+
+    var i = Math.floor((alpha)/(2 * Math.PI) * nsa);
+    var j = 0;
+
+    if( vertex.z < 0 )
+        j = 1;
+
+    if( vertex.y < 0 )
+        i = nsa - i - 1;   
+
+    console.log((2 * Math.PI) / nsa);
+
+    console.log( "alpha =" + alpha + " beta =" + beta + " i =" + i + " j =" + j);
     
-    sum ++;
+    return i + j * nsa;
+}
+
+function changeDefenseAppearance( shield, materialIndex )
+{
+    console.log("The shield is " + shield);
+    
+    materials[shield] = materialsShieldType[materialIndex];
 }
 
 function collideAsteroid( asteroid )
