@@ -77,7 +77,11 @@ function CreatePlanetSphere()
     g.dynamic = true;
     g.normalsNeedUpdate = true;
 
-    planetSphere = new THREE.Mesh( g, new THREE.MeshPhongMaterial({color: 'brown', fog: false}));
+    var material = new THREE.MeshPhongMaterial({color: 'brown', fog: false});
+    
+//    material.map = THREE.ImageUtils.loadTexture('images/earthmap1k.jpg');
+//    material.bumpScale = 8;
+    planetSphere = new THREE.Mesh( g, material);
     planetSphere.castShadow = true;
 
     //otherSphere = new THREE.Mesh( new THREE.SphereGeometry(1,3,3), new THREE.MeshBasicMaterial({color: 'red', fog: false}));
@@ -231,16 +235,16 @@ function calculateShield( geometry, face )
     if( vertex.y < 0 )
         i = nsa - i - 1;   
 
-    console.log((2 * Math.PI) / nsa);
-
-    console.log( "alpha =" + alpha + " beta =" + beta + " i =" + i + " j =" + j);
+//    console.log((2 * Math.PI) / nsa);
+//
+//    console.log( "alpha =" + alpha + " beta =" + beta + " i =" + i + " j =" + j);
     
     return i + j * nsa;
 }
 
 function changeDefenseAppearance( shield, materialIndex )
 {
-    console.log("The shield is " + shield);
+//    console.log("The shield is " + shield);
     
     materials[shield] = materialsShieldType[materialIndex];
 }
@@ -257,11 +261,20 @@ function collideAsteroid( asteroid )
     var intersects = raycaster.intersectObjects( [planetSphere] );
 
     if( intersects.length > 0 )
-        {                        
-            extrudeFaceInsideSphere( intersects[0].face.a, planetSphere.geometry, 2, planetSphere.position );
-            extrudeFaceInsideSphere( intersects[0].face.b, planetSphere.geometry, 2, planetSphere.position );
-            extrudeFaceInsideSphere( intersects[0].face.c, planetSphere.geometry, 2, planetSphere.position );
-        }
+    {       
+        var clone = asteroid.asteroid.position.clone();
+        createExplosion(clone.x,clone.y,clone.z);
+        
+        
+        extrudeFaceInsideSphere( intersects[0].face.a, planetSphere.geometry, 0.3, planetSphere.position );
+        extrudeFaceInsideSphere( intersects[0].face.b, planetSphere.geometry, 0.3, planetSphere.position );
+        extrudeFaceInsideSphere( intersects[0].face.c, planetSphere.geometry, 0.3, planetSphere.position );  
+        
+        
+        
+        scene.remove(asteroid.asteroid);
+        asteroid.remove();
+    }
 
 //                    for( var i = 0; i < planetSphere.geometry.vertices.length; i++ )
 //                    {                        

@@ -72,6 +72,7 @@ function Asteroid( size, color, velocity ) {
   this.asteroid = new THREE.Mesh( geometry, material );
   this.asteroid.castShadow = true;
   this.asteroid.position = new THREE.Vector3( 0, 0, 0 ); 
+    
   scene.add( this.asteroid );
         
   //setters. 
@@ -127,5 +128,11 @@ function Asteroid( size, color, velocity ) {
   
   this.partSystem = particleSystem;
   this.option = options;
-  this.spawnOptions = spawnerOptions;     
+  this.spawnOptions = spawnerOptions;    
+    
+  this.remove = function()
+  {
+      scene.remove(this.asteroid);
+      scene.remove(particleSystem);
+  }
 }
