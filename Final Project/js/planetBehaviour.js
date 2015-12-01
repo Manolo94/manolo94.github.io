@@ -71,7 +71,7 @@ function CreatePlanetSphere()
 {
     // Objects
     // Models
-    var g = new THREE.BoxGeometry(200,200,200, 20, 20, 20);
+    var g = new THREE.BoxGeometry(200,200,200, 7, 7, 7);
 
     for (var i in g.vertices) {
         var vertex = g.vertices[i];
