@@ -460,34 +460,9 @@
                 // Create lava ball
                 createLavaSphere();
                 
-                // Create asteroids
-                //new Asteroid(size, color, horizontalSpeed, verticalSpeed)        
-                for( var i = 0; i < 2; i++)
-                {
-                    //25 asteroids, random position around planet, random color, size 4
-                    var size = Math.floor(Math.random() * 4) + 2;
-                    var color = asteroidType[Math.floor(Math.random() * 3) + 0];
-                    var asteroid = new Asteroid( size, color, new THREE.Vector3());
-                    
-                    var alpha = Math.random()*Math.PI*2;
-                    var beta = Math.random()*Math.PI*2;
-                    var sphereRadius = 200;
-                    
-                    var circleRadius = Math.cos(beta)*sphereRadius;
-                    
-                    asteroid.positionX( Math.cos(alpha)*circleRadius );
-                    asteroid.positionY( Math.sin(alpha)*circleRadius );
-                    asteroid.positionZ( Math.sin(beta)*sphereRadius );
-                    
-                    var velTowardPlanet = asteroid.asteroid.position.clone().negate().normalize().multiplyScalar(0.8);
-                    console.log(velTowardPlanet);
-                  asteroid.option.velocity = velTowardPlanet;
-                    
-                  //  asteroid.normalize();
-                    //asteroid.multiplyScalar(200);
-                    
-                    asteroids.push(asteroid);
-                }
+                createAsteroid();
+                createAsteroid();
+                createAsteroid();
                 
                 //point2.position.x = 10;
                 //point2.position.y = -10;
@@ -504,7 +479,35 @@
                 render();
             }
             
-            var ilo = 0;
+            function createAsteroid()
+            {
+                // Create asteroids
+                //25 asteroids, random position around planet, random color, size 4
+                var size = Math.floor(Math.random() * 4) + 2;
+                var color = asteroidType[Math.floor(Math.random() * 3) + 0];
+                var asteroid = new Asteroid( size, color, new THREE.Vector3());
+
+                var alpha = Math.random()*Math.PI*2;
+                var beta = Math.random()*Math.PI*2;
+                var sphereRadius = Math.random()*100 + 200;
+                var speed = Math.random()*1.0 + 0.8;
+
+                var circleRadius = Math.cos(beta)*sphereRadius;
+
+                asteroid.positionX( Math.cos(alpha)*circleRadius );
+                asteroid.positionY( Math.sin(alpha)*circleRadius );
+                asteroid.positionZ( Math.sin(beta)*sphereRadius );
+
+                var velTowardPlanet = asteroid.asteroid.position.clone().negate().normalize().multiplyScalar(0.8);
+                //console.log(velTowardPlanet);
+                asteroid.option.velocity = velTowardPlanet;
+
+                //  asteroid.normalize();
+                //asteroid.multiplyScalar(200);
+
+                asteroids.push(asteroid);
+            }
+            
             var delta = 0;
             function render()
             {
@@ -514,13 +517,11 @@
                 // Update the fireball
                 customUniforms.time.value += delta;
                 
-                ilo += delta;
                 
-                if( ilo > 0.3 )
+                var r = Math.floor(Math.random()*20);                
+                if( r == 0 )
                 {
-                    //changeDefenseAppearance( );
-                    
-                    ilo = 0;
+                    createAsteroid();
                 }
                 
                 //if( i >= planetSphere.geometry.vertices.length )
