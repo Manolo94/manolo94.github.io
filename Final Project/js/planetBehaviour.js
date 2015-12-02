@@ -259,8 +259,24 @@ function collideAsteroid( asteroid )
     raycaster.set( asteroid.asteroid.position.clone(), asteroid.option.velocity.clone().normalize() );
     raycaster.far = 0.8;
 
-    if( asteroid.asteroid.position.length() > 40 || asteroid.asteroid.position.length() < 20 )
+    if( asteroid.asteroid.position.length() > 40 )
         return;
+        
+    if( asteroid.asteroid.position.length() < 10 )
+    {
+        // GAME OVER, your core exploded
+        scene.remove(asteroid.asteroid);
+        asteroid.remove();
+        
+        // Remove the asteroid from the array of asteroids
+        var rindex = asteroids.indexOf(asteroid);
+        
+        if (rindex > -1) {
+            asteroids.splice(rindex, 1);
+        }
+        
+        return;
+    }
 
     // calculate objects intersecting the picking ray
     var intersects = raycaster.intersectObjects( [planetSphere] );
