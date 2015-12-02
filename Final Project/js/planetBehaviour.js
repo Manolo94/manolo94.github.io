@@ -1,3 +1,7 @@
+var shields = [];
+
+var DENT_DEPTH = 10;
+
 function createLavaSphere()
 {
     // base image texture for mesh
@@ -67,7 +71,7 @@ function CreatePlanetSphere()
 {
     // Objects
     // Models
-    var g = new THREE.BoxGeometry(200,200,200, 20, 20, 20);
+    var g = new THREE.BoxGeometry(200,200,200, 7, 7, 7);
 
     for (var i in g.vertices) {
         var vertex = g.vertices[i];
@@ -77,7 +81,11 @@ function CreatePlanetSphere()
     g.dynamic = true;
     g.normalsNeedUpdate = true;
 
-    planetSphere = new THREE.Mesh( g, new THREE.MeshPhongMaterial({color: 'brown', fog: false}));
+    var material = new THREE.MeshPhongMaterial({color: 'brown', fog: false});
+    
+//    material.map = THREE.ImageUtils.loadTexture('images/earthmap1k.jpg');
+//    material.bumpScale = 8;
+    planetSphere = new THREE.Mesh( g, material);
     planetSphere.castShadow = true;
 
     //otherSphere = new THREE.Mesh( new THREE.SphereGeometry(1,3,3), new THREE.MeshBasicMaterial({color: 'red', fog: false}));
@@ -111,15 +119,15 @@ var materials = [];
 
 var materialsShieldType = [new THREE.MeshPhongMaterial({color: 'blue', fog: false, transparent:true, opacity:0.2}),
                            new THREE.MeshPhongMaterial({color: 'blue', fog: false, transparent:true, opacity:0.6}),
-                            new THREE.MeshPhongMaterial({color: 'blue', fog: false, side: THREE.DoubleSide}),
-                          new THREE.MeshPhongMaterial({color: 'red', fog: false, side: THREE.DoubleSide}),
-                          new THREE.MeshPhongMaterial({color: 'gray', fog: false, side: THREE.DoubleSide}),
-                          new THREE.MeshPhongMaterial({color: 'yellow', fog: false, side: THREE.DoubleSide}),
-                          new THREE.MeshPhongMaterial({color: 'green', fog: false, side: THREE.DoubleSide}),
-                          new THREE.MeshPhongMaterial({color: 'white', fog: false, side: THREE.DoubleSide}),
-                          new THREE.MeshPhongMaterial({color: 'purple', fog: false, side: THREE.DoubleSide}),
-                          new THREE.MeshPhongMaterial({color: 'pink', fog: false, side: THREE.DoubleSide}),
-                          new THREE.MeshPhongMaterial({color: 'magenta', fog: false, side: THREE.DoubleSide})];
+                           new THREE.MeshPhongMaterial({color: 'blue', fog: false, side: THREE.DoubleSide}),
+                           new THREE.MeshPhongMaterial({color: 'red', fog: false, side: THREE.DoubleSide}),
+                           new THREE.MeshPhongMaterial({color: 'gray', fog: false, side: THREE.DoubleSide}),
+                           new THREE.MeshPhongMaterial({color: 'yellow', fog: false, side: THREE.DoubleSide}),
+                           new THREE.MeshPhongMaterial({color: 'green', fog: false, side: THREE.DoubleSide}),
+                           new THREE.MeshPhongMaterial({color: 'white', fog: false, side: THREE.DoubleSide}),
+                           new THREE.MeshPhongMaterial({color: 'purple', fog: false, side: THREE.DoubleSide}),
+                           new THREE.MeshPhongMaterial({color: 'pink', fog: false, side: THREE.DoubleSide}),
+                           new THREE.MeshPhongMaterial({color: 'magenta', fog: false, side: THREE.DoubleSide})];
 
 //number of shields per axis
 var nsa = 4;
@@ -231,16 +239,16 @@ function calculateShield( geometry, face )
     if( vertex.y < 0 )
         i = nsa - i - 1;   
 
-    console.log((2 * Math.PI) / nsa);
-
-    console.log( "alpha =" + alpha + " beta =" + beta + " i =" + i + " j =" + j);
+//    console.log((2 * Math.PI) / nsa);
+//
+//    console.log( "alpha =" + alpha + " beta =" + beta + " i =" + i + " j =" + j);
     
     return i + j * nsa;
 }
 
 function changeDefenseAppearance( shield, materialIndex )
 {
-    console.log("The shield is " + shield);
+//    console.log("The shield is " + shield);
     
     materials[shield] = materialsShieldType[materialIndex];
 }
@@ -249,6 +257,7 @@ function collideAsteroid( asteroid )
 {
     // update the picking ray with the camera and mouse position	
     raycaster.set( asteroid.asteroid.position.clone(), asteroid.option.velocity.clone().normalize() );
+    raycaster.far = 0.8;
 
     if( asteroid.asteroid.position.length() > 40 || asteroid.asteroid.position.length() < 20 )
         return;
@@ -257,11 +266,27 @@ function collideAsteroid( asteroid )
     var intersects = raycaster.intersectObjects( [planetSphere] );
 
     if( intersects.length > 0 )
-        {                        
-            extrudeFaceInsideSphere( intersects[0].face.a, planetSphere.geometry, 2, planetSphere.position );
-            extrudeFaceInsideSphere( intersects[0].face.b, planetSphere.geometry, 2, planetSphere.position );
-            extrudeFaceInsideSphere( intersects[0].face.c, planetSphere.geometry, 2, planetSphere.position );
+    {       
+//        var clone = asteroid.asteroid.position.clone();
+//        createExplosion(clone.x,clone.y,clone.z);
+        
+        
+        extrudeFaceInsideSphere( intersects[0].face.a, planetSphere.geometry, DENT_DEPTH, planetSphere.position );
+        extrudeFaceInsideSphere( intersects[0].face.b, planetSphere.geometry, DENT_DEPTH, planetSphere.position );
+        extrudeFaceInsideSphere( intersects[0].face.c, planetSphere.geometry, DENT_DEPTH, planetSphere.position );  
+        
+        
+        
+        scene.remove(asteroid.asteroid);
+        asteroid.remove();
+        
+        // Remove the asteroid from the array of asteroids
+        var rindex = asteroids.indexOf(asteroid);
+        
+        if (rindex > -1) {
+            asteroids.splice(rindex, 1);
         }
+    }
 
 //                    for( var i = 0; i < planetSphere.geometry.vertices.length; i++ )
 //                    {                        

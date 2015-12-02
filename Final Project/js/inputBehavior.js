@@ -5,54 +5,55 @@ function onDocumentMouseMove( event )
     mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
     mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
     
-    // update the picking ray with the camera and mouse position	
-    raycaster.setFromCamera( mouse, camera );	
+    if( !mouseDown )
+    {    
+        // update the picking ray with the camera and mouse position	
+        raycaster.setFromCamera( mouse, camera );
+        raycaster.far = Infinity;
 
-    // calculate objects intersecting the picking ray
-    var intersects = raycaster.intersectObjects( [defenseSphere] );
-    
-    if( intersects.length > 0 )
-    {
-        var index = calculateShield( defenseSphere.geometry, intersects[0].face );
-        
-        changeDefenseAppearance( index, 1 );
-        
-        if( previousShield != -1 && previousShield != index )
-            changeDefenseAppearance( previousShield, 0 );
-        
-        previousShield = index;
+        // calculate objects intersecting the picking ray
+        var intersects = raycaster.intersectObjects( [defenseSphere] );
+
+        if( intersects.length > 0 )
+        {
+            var index = calculateShield( defenseSphere.geometry, intersects[0].face );
+            
+            // Hover effect if it has not been clicked
+            if( shields[index].shieldType == -1 )
+                changeDefenseAppearance( index, 1 );
+
+            // Return the previous shield to the default appearance if it has not been clicked
+            if( previousShield != -1 && previousShield != index && shields[previousShield].shieldType == -1 )
+                changeDefenseAppearance( previousShield, 0 );
+
+            previousShield = index;
+        }
+        else if( previousShield != -1 )
+        {
+            if( previousShield != -1 && shields[previousShield].shieldType == -1 )
+                changeDefenseAppearance( previousShield, 0 );
+
+            previousShield = -1;
+        }
     }
-    else if( previousShield != -1 && previousShield != index )
-    {
-        if( previousShield != -1 && previousShield != index )
-            changeDefenseAppearance( previousShield, 0 );
-        
-        previousShield = -1;
-    }
-    
 }
 
+
+var mouseDown = false;
+var mouseDownX = -1;
+var mouseDownY = -1;
 function onDocumentMouseDown( event ) 
 {
+    mouseDown = true;
+    
     cameraController.Start();
     // calculate mouse position in normalized device coordinates
     // (-1 to +1) for both components
 
     mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
     mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
-
-    // update the picking ray with the camera and mouse position	
-    raycaster.setFromCamera( mouse, camera );	
-
-    // calculate objects intersecting the picking ray
-    var intersects = raycaster.intersectObjects( [defenseSphere] );
-    
-    if( intersects.length > 0 )
-    {
-        var index = calculateShield( defenseSphere.geometry, intersects[0].face );
-        
-        changeDefenseAppearance( index, 2 );
-    }
+    mouseDownX = mouse.x;
+    mouseDownY = mouse.y;
 
     /*if( intersects.length > 0 )
         {                        
@@ -84,4 +85,34 @@ function onDocumentMouseDown( event )
 function onDocumentMouseUp( event )
 {
     cameraController.Stop();
+    
+    mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+    mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+    
+    if( mouseDownX == mouse.x && mouseDownY == mouse.y )
+    {
+
+        // update the picking ray with the camera and mouse position	
+        raycaster.setFromCamera( mouse, camera );
+        raycaster.far = Infinity;
+
+        // calculate objects intersecting the picking ray
+        var intersects = raycaster.intersectObjects( [defenseSphere] );
+
+        if( intersects.length > 0 )
+        {
+            var index = calculateShield( defenseSphere.geometry, intersects[0].face );
+
+            if(shields[index].shieldType == -1 )
+            {
+                // Game logic
+                shields[index].shieldType = 0;
+
+                // Rendering
+                changeDefenseAppearance( index, 2 );
+            }
+        }
+    }
+    
+    mouseDown = false;
 }

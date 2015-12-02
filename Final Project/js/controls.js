@@ -43,8 +43,8 @@ Controls.PlanetCameraRotationController = function ( camera )
     {        
         if( enabled === false ) return;        
         
-        var movementX = event.movementX || event.mozMovementX || event.webkitMovementX || 0;
-        var movementY = event.movementY || event.mozMovementY || event.webkitMovementY || 0;
+        var movementX = event.movementX || event.mozMovementX || 0;
+        var movementY = event.movementY || event.mozMovementY || 0;
 
         controlAngleHorizontal += movementX * 0.002;
         controlAngleVertical  += movementY * 0.002;
