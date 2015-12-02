@@ -10,14 +10,17 @@ function Asteroid( size, color, velocity ) {
   //color of the asteroid
   switch( color ) {
       case 'ice':
+          this.type = 0;
           colorValue = 0x56C1DC;
           light = new THREE.PointLight(0x0000ff, 20, 100);                                
       break;
       case 'fire':
+          this.type = 1;
           colorValue = 0xEA3500;
           light = new THREE.PointLight(0xff0000, 20, 100);                             
       break;
       default:
+          this.type = 2;
           colorValue = 0xBA55D3;
           light = new THREE.PointLight(0x1111ff, 20, 180);
       break;        

@@ -86,6 +86,7 @@ function CreatePlanetSphere()
 //    material.map = THREE.ImageUtils.loadTexture('images/earthmap1k.jpg');
 //    material.bumpScale = 8;
     planetSphere = new THREE.Mesh( g, material);
+    planetSphere.name = "PLANET";
     planetSphere.castShadow = true;
 
     //otherSphere = new THREE.Mesh( new THREE.SphereGeometry(1,3,3), new THREE.MeshBasicMaterial({color: 'red', fog: false}));
@@ -191,7 +192,8 @@ function CreateDefenseSphere()
         }
     }
         
-    defenseSphere = new THREE.Mesh( g, new THREE.MeshFaceMaterial() );            
+    defenseSphere = new THREE.Mesh( g, new THREE.MeshFaceMaterial() );
+    defenseSphere.name = "DEFENSE";
 
 
     defenseSphere.material.materials = materials;
@@ -210,6 +212,36 @@ function CreateDefenseSphere()
     /* Compute normals */
     defenseSphere.geometry.computeFaceNormals();
     defenseSphere.geometry.computeVertexNormals();
+}
+
+var BACKGROUND_RADIUS = 100;
+function createBackground()
+{
+    // Objects
+    // Models
+    var g = new THREE.BoxGeometry(200,200,200, 20, 20, 20);
+
+    g.dynamic = true;
+    g.normalsNeedUpdate = true;
+
+    for (var i in g.vertices) {
+        var vertex = g.vertices[i];
+        vertex.normalize().multiplyScalar(BACKGROUND_RADIUS);
+    }
+
+    g.verticesNeedUpdate = true;
+    g.normalsNeedUpdate = true;
+
+    /* Compute normals */
+    g.computeFaceNormals();
+    g.computeVertexNormals();
+        
+    var background = new THREE.Mesh( g, new THREE.MeshBasicMaterial({ map:THREE.ImageUtils.loadTexture('images/skybox/skybox.png'), fog: false, side: THREE.BackSide } ) );
+    
+                    console.log("AAAAAAAAAAAAAAAAAAAAAA!!!!!!!!!!!!!");
+                                    
+    
+    scene.add(background);
 }
 
 function calculateShield( geometry, face )
@@ -279,13 +311,15 @@ function collideAsteroid( asteroid )
     }
 
     // calculate objects intersecting the picking ray
-    var intersects = raycaster.intersectObjects( [planetSphere] );
+    var intersects = raycaster.intersectObjects( [planetSphere, defenseSphere] );
+    
+    if( intersects.length > 0)
+        console.log( intersects[0].object.name );
 
-    if( intersects.length > 0 )
+    if( intersects.length > 0 && intersects[0].object.name != undefined && intersects[0].object.name == "PLANET" )
     {       
 //        var clone = asteroid.asteroid.position.clone();
 //        createExplosion(clone.x,clone.y,clone.z);
-        
         
         extrudeFaceInsideSphere( intersects[0].face.a, planetSphere.geometry, DENT_DEPTH, planetSphere.position );
         extrudeFaceInsideSphere( intersects[0].face.b, planetSphere.geometry, DENT_DEPTH, planetSphere.position );
@@ -301,6 +335,26 @@ function collideAsteroid( asteroid )
         
         if (rindex > -1) {
             asteroids.splice(rindex, 1);
+        }
+    }
+    
+    else if( intersects.length > 0 && intersects[0].object.name != undefined && intersects[0].object.name == "DEFENSE" )
+    {
+        var index = calculateShield( defenseSphere.geometry, intersects[0].face );
+        
+        console.log( "st " + shields[index].shieldType + " aT " + asteroid.type );
+        
+        if( shields[index].shieldType == asteroid.type )
+        {
+            scene.remove(asteroid.asteroid);
+            asteroid.remove();
+
+            // Remove the asteroid from the array of asteroids
+            var rindex = asteroids.indexOf(asteroid);
+
+            if (rindex > -1) {
+                asteroids.splice(rindex, 1);
+            }
         }
     }
 

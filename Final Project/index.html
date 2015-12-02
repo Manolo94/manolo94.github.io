@@ -536,8 +536,8 @@
                 raycaster = new THREE.Raycaster();
                 
                 initParticles();
-
                 
+                createBackground();
                 
                 render();
             }
@@ -547,7 +547,7 @@
                 // Create asteroids
                 //25 asteroids, random position around planet, random color, size 4
                 var size = Math.floor(Math.random() * 4) + 2;
-                var color = asteroidType[Math.floor(Math.random() * 3) + 0];
+                var color = asteroidType[0];//asteroidType[Math.floor(Math.random() * 3) + 0];
                 var asteroid = new Asteroid( size, color, new THREE.Vector3());
 
                 var alpha = Math.random()*Math.PI*2;
