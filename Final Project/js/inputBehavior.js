@@ -19,9 +19,13 @@ function onDocumentMouseMove( event )
             var index = calculateShield( defenseSphere.geometry, intersects[0].face );
             
             // Hover effect if it has not been clicked
-            if( shields[index].shieldType == -1 )
-                changeDefenseAppearance( index, 1 );
-
+            if( shields[index].shieldType == -1 ){
+                var ghost = getGhostShield();
+                
+                if(ghost !== undefined){
+                    changeDefenseAppearance( index, ghost );
+                }              
+            }             
             // Return the previous shield to the default appearance if it has not been clicked
             if( previousShield != -1 && previousShield != index && shields[previousShield].shieldType == -1 )
                 changeDefenseAppearance( previousShield, 0 );
@@ -38,6 +42,41 @@ function onDocumentMouseMove( event )
     }
 }
 
+function getGhostShield(){
+    if(currentShieldSelected !== undefined)
+    {
+        switch(currentShieldSelected)
+        {
+            case 'blue':
+                return 1;
+                break;
+            case 'red':
+                return 4;
+                break;
+            default:
+                return 6;
+                break;               
+        }
+    }
+}
+
+function getShield(){
+    if(currentShieldSelected !== undefined)
+    {
+        switch(currentShieldSelected)
+        {
+            case 'blue':
+                return {material: 2, type: 0};
+                break;
+            case 'red':
+                return {material: 3, type: 1};
+                break;
+            default:
+                return {material: 5, type: 2};
+                break;               
+        }
+    }
+}
 
 var mouseDown = false;
 var mouseDownX = -1;
@@ -105,11 +144,16 @@ function onDocumentMouseUp( event )
 
             if(shields[index].shieldType == -1 )
             {
-                // Game logic
-                shields[index].shieldType = 0;
+                var shield = getShield();
+                
+                if(shield !== undefined)
+                {
+                    // Game logic
+                    shields[index].shieldType = shield.type;
 
-                // Rendering
-                changeDefenseAppearance( index, 2 );
+                    // Rendering
+                    changeDefenseAppearance( index, shield.material ); 
+                }         
             }
         }
     }

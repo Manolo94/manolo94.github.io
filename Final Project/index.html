@@ -14,14 +14,10 @@
 			}
 
 			#blocker {
-
 				position: absolute;
-
 				width: 100%;
 				height: 100%;
-
 				background-color: rgba(0,0,0,0.5);
-
 			}
 
 			#instructions {
@@ -50,9 +46,15 @@
 
 				cursor: pointer;
 			}
-		</style>
-        
-        <script src="js/jquery_v1.9.0.js"></script>
+    </style>      
+    <script src="js/jquery_v1.9.0.js"></script>
+    <link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+    <script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+    <script src="events.js"></script>
+    <style>
+        html { overflow-y: hidden; overflow-x: hidden;}
+        span {font-weight: bolder; font-size: 15px;}
+    </style>    
         <script src="js/controls.js"></script>
         <script src="libs/three.js"></script>
         <script src="js/SPE.min.js"></script>  
@@ -66,12 +68,54 @@
         <script src="js/utils.js"></script>
     </head>
     <body>
+        <script type=text/javascript>
+            var currentShieldSelected;
+        
+            $(document).ready(function(){
+                $("img").on('click', function() {
+                 var height = $(this).css('height');
+                 var width = $(this).css('width');
+                 
+                 if(height === '50px'){
+                    $(this).css('height', '70');
+                    $(this).css('width', '65');
+                    currentShieldSelected = $(this).attr('id');
+                    
+                    $('img').each(function(idx, el){
+                        if($(this).attr('id') !== currentShieldSelected){
+                            $(this).css('height', '50');
+                            $(this).css('width', '45');
+                        }
+                    });   
+                    
+                 } else{
+                    $(this).css('height', '50');
+                    $(this).css('width', '45');
+                    
+                    currentShieldSelected = undefined;
+                 }                 
+                });
+            });
+        </script>
+        <div class="row" style="z-index:1000; position: absolute; margin-left:50px; margin-top:50px;" >
+          <div class="col-md-4" >        
+              <img id="blue" style="height:50px;" src="/images/blue-shield.png" alt="blue shield">   
+          </div>
+          <div class="col-md-4"  >
+              <img id="red" style="height:50px;" src="/images/red-shield.png" alt="red shield">
+          </div>
+            <div class="col-md-4"  >
+              <img id="titanium" style="height:50px;" src="/images/titanium-shield.png" alt="red shield">   
+          </div>
+        </div>
+        
         <div id="container">
             <div id="blocker">
                 <div id="instructions">
                 </div>
             </div>
         </div>
+        
         
         <!-- ---------------- Custom Shader Code ------------------------ -->
         <script id="planetCoreVertexShader" type="x-shader/x-vertex">
