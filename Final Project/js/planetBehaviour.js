@@ -131,6 +131,8 @@ function CreatePlanetSphere()
     /* Compute normals */
     planetSphere.geometry.computeFaceNormals();
     planetSphere.geometry.computeVertexNormals();
+    
+    scene.add(planetSphere);
 }
 
 // Push back materials
@@ -232,6 +234,8 @@ function CreateDefenseSphere()
     /* Compute normals */
     defenseSphere.geometry.computeFaceNormals();
     defenseSphere.geometry.computeVertexNormals();
+    
+    scene.add(defenseSphere);
 }
 
 var BACKGROUND_RADIUS = 100;

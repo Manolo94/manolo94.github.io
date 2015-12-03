@@ -550,21 +550,16 @@
                 point3.position.z = -PLANET_RADIUS/2;
                 
                 createBackground();
+                
+                createLavaSphere();
+                
+                CreateDefenseSphere();              
             }
             
             function init()
             {
                 CreatePlanetSphere();
-                CreateDefenseSphere();
-                
-                // Add all objects
-                scene.add(planetSphere);
-                scene.add(defenseSphere);
-                //scene.add(otherSphere);
-                             
-                // Create lava ball
-                createLavaSphere();
-                
+                      
                 createAsteroid();
                 createAsteroid();
                 createAsteroid();
