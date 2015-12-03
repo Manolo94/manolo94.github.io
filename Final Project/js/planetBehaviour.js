@@ -67,6 +67,24 @@ function createLavaSphere()
     console.log('Lave sphere done');
 }
 
+function getPlanetTexture(){
+    if(planetSelected !== undefined)
+    {
+        switch(planetSelected)
+        {
+            case 'mars':
+                return 'images/marsmap.jpg';
+                break;
+            case 'earth':
+                return 'images/earthmap.jpg';
+                break;
+            default:
+                return 'images/jupitermap.jpg';
+                break;               
+        }
+    }
+}
+
 function CreatePlanetSphere()
 {
     // Objects
@@ -81,10 +99,10 @@ function CreatePlanetSphere()
     g.dynamic = true;
     g.normalsNeedUpdate = true;
 
-    var material = new THREE.MeshPhongMaterial({color: 'brown', fog: false});
+    var material = new THREE.MeshPhongMaterial({fog: false});
     
-//    material.map = THREE.ImageUtils.loadTexture('images/earthmap1k.jpg');
-//    material.bumpScale = 8;
+    material.map = THREE.ImageUtils.loadTexture(getPlanetTexture());
+    material.bumpScale = 0.05;
     planetSphere = new THREE.Mesh( g, material);
     planetSphere.name = "PLANET";
     planetSphere.castShadow = true;
@@ -118,13 +136,13 @@ function CreatePlanetSphere()
 // Push back materials
 var materials = [];
 
-var materialsShieldType = [new THREE.MeshPhongMaterial({color: 'blue', fog: false, transparent:true, opacity:0.2}),
-                           new THREE.MeshPhongMaterial({color: 'blue', fog: false, transparent:true, opacity:0.6}),
-                           new THREE.MeshPhongMaterial({color: 'blue', fog: false, side: THREE.DoubleSide}),
-                           new THREE.MeshPhongMaterial({color: 'red', fog: false, side: THREE.DoubleSide}),
-                           new THREE.MeshPhongMaterial({color: 'red', fog: false, transparent:true, opacity:0.2}),
-                           new THREE.MeshPhongMaterial({color: 'gray', fog: false, side: THREE.DoubleSide}),
-                           new THREE.MeshPhongMaterial({color: 'gray', fog: false, transparent:true, side: THREE.DoubleSide, opacity:0.6}),
+var materialsShieldType = [new THREE.MeshPhongMaterial({color: 0x3A6592, fog: false, transparent:true, opacity:0.2}),
+                           new THREE.MeshPhongMaterial({color: 0x3A6592, fog: false, transparent:true, opacity:0.6}),
+                           new THREE.MeshPhongMaterial({color: 0x3A6592, fog: false, side: THREE.DoubleSide}),
+                           new THREE.MeshPhongMaterial({color: 0xD38756, fog: false, side: THREE.DoubleSide}),
+                           new THREE.MeshPhongMaterial({color: 0xD38756, fog: false, transparent:true, opacity:0.2}),
+                           new THREE.MeshPhongMaterial({color: 0xC5CAD0, fog: false, side: THREE.DoubleSide}),
+                           new THREE.MeshPhongMaterial({color: 0xC5CAD0, fog: false, transparent:true, side: THREE.DoubleSide, opacity:0.6}),
                            new THREE.MeshPhongMaterial({color: 'yellow', fog: false, side: THREE.DoubleSide}),
                            new THREE.MeshPhongMaterial({color: 'green', fog: false, side: THREE.DoubleSide}),
                            new THREE.MeshPhongMaterial({color: 'white', fog: false, side: THREE.DoubleSide}),
@@ -238,10 +256,7 @@ function createBackground()
     g.computeFaceNormals();
     g.computeVertexNormals();
         
-    var background = new THREE.Mesh( g, new THREE.MeshBasicMaterial({ map:THREE.ImageUtils.loadTexture('images/skybox/skybox.png'), fog: false, side: THREE.BackSide } ) );
-    
-                    console.log("AAAAAAAAAAAAAAAAAAAAAA!!!!!!!!!!!!!");
-                                    
+    var background = new THREE.Mesh( g, new THREE.MeshBasicMaterial({ map:THREE.ImageUtils.loadTexture('images/skybox/skybox.png'), fog: false, side: THREE.BackSide } ) );                            
     
     scene.add(background);
 }

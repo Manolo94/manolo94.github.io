@@ -12,6 +12,14 @@
 				overflow: hidden;
 				font-family: arial;
 			}
+            .score{
+                font-size: 25pt;
+                color: rgb(186,85,211);
+            }
+            
+                
+            #stardustValue{
+            }
 
 			#blocker {
 				position: absolute;
@@ -50,7 +58,7 @@
     <script src="js/jquery_v1.9.0.js"></script>
     <link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
     <script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
-    <script src="events.js"></script>
+<!--    <script src="events.js"></script>-->
     <style>
         html { overflow-y: hidden; overflow-x: hidden;}
         span {font-weight: bolder; font-size: 15px;}
@@ -68,45 +76,25 @@
         <script src="js/utils.js"></script>
     </head>
     <body>
-        <script type=text/javascript>
-            var currentShieldSelected;
-        
-            $(document).ready(function(){
-                $("img").on('click', function() {
-                 var height = $(this).css('height');
-                 var width = $(this).css('width');
-                 
-                 if(height === '50px'){
-                    $(this).css('height', '70');
-                    $(this).css('width', '65');
-                    currentShieldSelected = $(this).attr('id');
-                    
-                    $('img').each(function(idx, el){
-                        if($(this).attr('id') !== currentShieldSelected){
-                            $(this).css('height', '50');
-                            $(this).css('width', '45');
-                        }
-                    });   
-                    
-                 } else{
-                    $(this).css('height', '50');
-                    $(this).css('width', '45');
-                    
-                    currentShieldSelected = undefined;
-                 }                 
-                });
-            });
-        </script>
+        <script src="js/events.js"></script>
         <div class="row" style="z-index:1000; position: absolute; margin-left:50px; margin-top:50px;" >
-          <div class="col-md-4" >        
-              <img id="blue" style="height:50px;" src="images/blue-shield.png" alt="blue shield">   
-          </div>
-          <div class="col-md-4"  >
-              <img id="red" style="height:50px;" src="images/red-shield.png" alt="red shield">
-          </div>
-            <div class="col-md-4"  >
-              <img id="titanium" style="height:50px;" src="images/titanium-shield.png" alt="red shield">   
-          </div>
+            <div class="col-md-8">
+              <div class="col-md-4" >        
+                  <img id="blue" class="shield" style="height:50px;" src="images/blue-shield.png" alt="blue shield">   
+              </div>
+              <div class="col-md-4"  >
+                  <img id="red" class="shield" style="height:50px;" src="images/red-shield.png" alt="red shield">
+              </div>
+                <div class="col-md-4"  >
+                  <img id="titanium" class="shield" style="height:50px;" src="images/titanium-shield.png" alt="red shield">   
+              </div>
+            </div>
+            <div class="col-md-4"><button id="menuButton" style="margin-top:12%;" type="button" class="btn btn-primary">Menu</button></div>
+        </div>
+        <div class="row" style="z-index:1000; position: absolute; margin-left:50px; margin-top:150px;" >
+            <div class="score row" style="width:1000%">
+                <div class="col-md-6">Stardust: <span id="scoreValue" class="score">0</span></div>
+            </div>       
         </div>
         
         <div id="container">
@@ -421,7 +409,6 @@
         
         <script type="text/javascript">
             var clock = new THREE.Clock();
-            
             var camera, cameraController, scene, renderer;
             cameraHorizontalAngle = 0, cameraVerticalAngle = 0;
             var pointer, raycaster, mouse = {};
@@ -486,8 +473,13 @@
                 particleGroup.triggerPoolEmitter( 1, pos.set( x, y, z ) );
             }
             
-            function init()
+            function menu()
             {
+                $('#myModal').modal({
+                    backdrop: 'static',
+                    keyboard: true
+                }).show();
+                
                 tick = 0; spawnRate = 1500;
                 
                 container = document.getElementById( 'container' );
@@ -508,9 +500,6 @@
                 renderer.setSize( window.innerWidth, window.innerHeight );
                 container.appendChild( renderer.domElement );
                 renderer.shadowMap.enabled = true;
-                
-                CreatePlanetSphere();
-                CreateDefenseSphere();
                 
                 // Light
                 var point1 = new THREE.PointLight(0xffffff, 1, 1000);
@@ -547,10 +536,6 @@
                 
                 var light = new THREE.AmbientLight( 0x666666 );//0x101010 ); // soft white light
                 
-                // Add all objects
-                scene.add(planetSphere);
-                scene.add(defenseSphere);
-                //scene.add(otherSphere);
                 scene.add(point1);
                 scene.add(point2);
                 scene.add(point3);
@@ -560,16 +545,29 @@
                 
                 scene.add( point1d );
                 
+                //point2.position.x = 10;
+                //point2.position.y = -10;
+                point3.position.z = -PLANET_RADIUS/2;
+                
+                createBackground();
+            }
+            
+            function init()
+            {
+                CreatePlanetSphere();
+                CreateDefenseSphere();
+                
+                // Add all objects
+                scene.add(planetSphere);
+                scene.add(defenseSphere);
+                //scene.add(otherSphere);
+                             
                 // Create lava ball
                 createLavaSphere();
                 
                 createAsteroid();
                 createAsteroid();
                 createAsteroid();
-                
-                //point2.position.x = 10;
-                //point2.position.y = -10;
-                point3.position.z = -PLANET_RADIUS/2;
                 
                 camera.lookAt(planetSphere.position);
                 
@@ -580,9 +578,7 @@
                 raycaster = new THREE.Raycaster();
                 
                 initParticles();
-                
-                createBackground();
-                
+
                 render();
             }
             
@@ -702,8 +698,101 @@
                 renderer.render( scene, camera );
             }
             
-            window.onload = init;
+            window.onload = menu;
             
         </script>
+        <div id="myModal" class="modal fade">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button id="closeInstructions" type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                        <h4 class="modal-title"><span>Planet Defender!</span></h4>
+                </div>
+                <div class="modal-body">
+                    
+                    <p><span>INSTRUCTIONS</span></p>
+                    <p><span>1. </span>Accumulate <span style="color: rgb(186,85,211);">STARDUST</span> to create/upgrade <span>SHIELDS</span></p>
+                                      
+                    <p><span>2. </span>Use the <span>SHIELDS</span> to protect your planet</p>
+                    
+                    <div class="row" style="margin-left:12%;">
+                        <div class="col-md-4">
+                            <img style="height: 50px;" src="images/blue-shield.png" alt="">
+                        </div>
+                        <div class="col-md-4">
+                            <img style="height:50px;" src="images/red-shield.png" alt="">
+                        </div>
+                        <div class="col-md-4">
+                            <img style="height:50px;" src="images/titanium-shield.png" alt="">
+                        </div>
+                    </div>
+                    
+                    <p></p>
+                    <p><span style="color: rgb(58,101,146); padding-left:2em;">ICE</span> shield defends from <span>ICE</span> meteors</p>
+                    <p><span style="color: rgb(211,135,86); padding-left:2em;">FIRE</span> shield defends from <span>FIRE</span> meteors</p>
+                    <p><span style="color: rgb(197,202,208); padding-left:2em;">TITANIUM</span> shield defends from <span>SUPERNOVAS</span></p>
+                    
+                    <p><span>3. </span>Don't let them get into your inner <span>CORE</span> or your planet <span>DIES</span></p>
+                    
+                    <p><span>CONTROLS</span></p>
+                    
+                    <p style="padding-left:2em;"><span>MOUSE:</span> move camera</p>
+                    <p style="padding-left:2em;"><span>CTRL + MOUSE:</span> move shields</p>
+  
+                    <p><span>BEFORE PLAYING</span></p>
+                    
+                    <p>Select your <span>PLANET</span></p>                 
+                    <div class="row">
+                        <div class="col-md-4">
+                            <a href="#" class="thumbnail" data-toggle="tooltip" title="Mars">
+                              <img  id="mars" class="planet" style="height: 50px;" src="images/mars.jpg" alt="">
+                            </a>
+                        </div>
+                        <div class="col-md-4">
+                            <a href="#"  class="thumbnail" data-toggle="tooltip" title="Earth">
+                              <img id="earth" class="planet" style="height:50px;" src="images/earth.jpg" alt="">
+                            </a>
+                        </div>
+                        <div class="col-md-4">
+                            <a href="#" class="thumbnail" data-toggle="tooltip" title="Jupiter">
+                              <img id="jupiter" class="planet"style="height:50px;" src="images/jupiter.jpg" alt="">
+                            </a>
+                        </div>
+                    </div>
+                    <p>Select a <span>LEVEL</span> of difficulty</p>
+                    <div class="row">
+                        <div class="col-md-3">
+                            <a href="#" class="thumbnail" data-toggle="tooltip" title="Easy">
+                              <img id="easy" style="height: 50px;" class="difficulty" src="images/easy.png" alt="">
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="#" class="thumbnail" data-toggle="tooltip" title="Medium">
+                              <img id="medium" style="height:50px;" class="difficulty" src="images/medium.png" alt="">
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="#" class="thumbnail" data-toggle="tooltip" title="Hard">
+                              <img id="hard" style="height:50px;" class="difficulty" src="images/hard.png" alt="">
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="#" class="thumbnail" data-toggle="tooltip" title="Survival">
+                              <img id="survival" style="height:50px;" class="difficulty" src="images/survival.png" alt="">
+                            </a>
+                        </div>
+                    </div>
+
+                    <p></p>
+                    
+                    <p><span>Have fun!</span></p>
+                </div>
+                <div  id="closeInstructions" class="modal-footer">
+                    <button id="playButton" type="button" class="btn btn-default" data-dismiss="modal">Play!</button>
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+                </div>
+            </div><!-- /.modal-content -->
+        </div><!-- /.modal-dialog -->
+    </div><!-- /.modal -->
     </body>
 </html>
