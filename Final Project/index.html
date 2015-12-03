@@ -54,7 +54,7 @@
 
 				cursor: pointer;
 			}
-    </style>      
+    </style>    
     <script src="js/jquery_v1.9.0.js"></script>
     <link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
     <script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
@@ -76,6 +76,17 @@
         <script src="js/utils.js"></script>
     </head>
     <body>
+        
+        <!-- input audio  -->
+        <audio id = "spaceMusic" src = "sounds/spaceMusic.mp3" preload="auto" loop="true" autoplay ="true"></audio>
+        <audio id = "planetExplosion" src = "sounds/planetExplosion.wav" preload="auto"></audio>
+        <audio id = "meteorImpact1" src = "sounds/meteorImpact.wav" preload="auto"></audio>
+        <audio id = "meteorImpact2" src = "sounds/meteorImpact.wav" preload="auto"></audio>
+        <audio id = "meteorImpact3" src = "sounds/meteorImpact.wav" preload="auto"></audio>
+        <audio id = "shieldBreaking1" src = "sounds/shieldBreaking.aiff" preload="auto"></audio>
+        <audio id = "shieldBreaking2" src = "sounds/shieldBreaking.aiff" preload="auto"></audio>
+        <audio id = "shieldBreaking3" src = "sounds/shieldBreaking.aiff" preload="auto"></audio>
+        
         <script src="js/events.js"></script>
         <div class="row" style="z-index:1000; position: absolute; margin-left:50px; margin-top:50px;" >
             <div class="col-md-8">
@@ -414,65 +425,26 @@
             var pointer, raycaster, mouse = {};
             var asteroidType = ['ice', 'fire', 'nova'];
             var asteroids = [];
+            var asteroidPool = [];
+            var asteroidPoolIncluded = [];
             
             var windowWidth, windowHeight;
             
-            var planetSphere, defenseSphere;
+            var planetSphere, defenseSphere, lavaSphere;
             
             var PLANET_RADIUS = 30, DEFENSE_RADIUS = 35;
+        
             
             var sPosition;
-            
-            //Taken from http://squarefeet.github.io/ShaderParticleEngine/examples/pool.html
-            var emitter, particleGroup, pool,
-                pos = new THREE.Vector3(),
-                emitterSettings = {
-                    type: SPE.distributions.SPHERE,
-                    position: {
-                        spread: new THREE.Vector3(10),
-                        radius: 1,
-                    },
-                    velocity: {
-                        value: new THREE.Vector3( 100 )
-                    },
-                    size: {
-                        value: [ 30, 0 ]
-                    },
-                    opacity: {
-                        value: [1000, 1000]
-                    },
-                    color: {
-                        value: [new THREE.Color('yellow'),new THREE.Color('red')]
-                    },
-                    particleCount: 1000,
-                    alive: true,
-                    duration: 1,
-                    maxAge: {
-                        value: 0.5
-                    }
-                };
-            
-            function initParticles() {
-                particleGroup = new SPE.Group({
-                    texture: {
-                        value: THREE.ImageUtils.loadTexture('images/Fire.jpg')
-                    },
-                    blending: THREE.AdditiveBlending,
-                    maxParticleCount: 10000
-                });
-
-                particleGroup.addPool( 10, emitterSettings, false );
-
-                // Add particle group to scene.
-                scene.add( particleGroup.mesh );
-            }
-
-            // Trigger an explosion and random co-ords.
-            function createExplosion(x, y, z) {
-                var num = 150;
-                particleGroup.triggerPoolEmitter( 1, pos.set( x, y, z ) );
-            }
-            
+            var movementSpeed = 80;
+            var totalObjects = 1000;
+            var objectSize = 1;
+            var sizeRandomness = 4000;
+            var colors = [0xFF0FFF, 0xCCFF00, 0xFF000F, 0x996600, 0xFFFFFF];
+            /////////////////////////////////
+            var dirs = [];
+            var parts = [];
+                
             function menu()
             {
                 $('#myModal').modal({
@@ -480,13 +452,14 @@
                     keyboard: true
                 }).show();
                 
+                
                 tick = 0; spawnRate = 1500;
                 
                 container = document.getElementById( 'container' );
                 
                 keyboard = new THREEx.KeyboardState();
                 
-                camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 0.1, 10000 );
+                camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 0.1, 15000 );
                 camera.position.y = 10;
                 
                 // Generate the camera controller
@@ -558,11 +531,34 @@
             
             function init()
             {
+                               // Display initial score
+                score = 2;
+                
+                // Difficulty setting
+                if( difficultySelected === "easy" )
+                {
+                    $('#red').hide();
+                    $('#titanium').hide();
+                    score = 10;
+                }
+                                // Difficulty setting
+                if( difficultySelected === "medium" )
+                {
+                    $('#titanium').hide();
+                    score = 10;
+                }
+                                if( difficultySelected === "hard" )
+                {
+                    score = 10;
+                }
+                
                 CreatePlanetSphere();
+                
+                GenerateAsteroidPool( 50 );
                       
-                createAsteroid();
-                createAsteroid();
-                createAsteroid();
+                putAsteroidFromPool();
+                putAsteroidFromPool();
+                putAsteroidFromPool();
                 
                 camera.lookAt(planetSphere.position);
                 
@@ -572,17 +568,82 @@
                 
                 raycaster = new THREE.Raycaster();
                 
-                initParticles();
+ 
+                stardustScoreElement.text(score);
+                
+                //parts.push(new ExplodeAnimation(0, 0));
 
                 render();
+            }
+            
+            function GenerateAsteroidPool( numOfAsteroids )
+            {
+                for( var i = 0; i < numOfAsteroids; i++ )
+                {
+                    asteroidPoolIncluded[i] = false;
+                    asteroidPool[i] = createAsteroid();
+                }
+            }
+            
+            function putAsteroidFromPool()
+            {
+                var ast;
+                
+                for( var i = 0; i < asteroidPool.length; i++ )
+                {
+                    if( asteroidPoolIncluded[i] === false && asteroidPool[i] !== undefined )
+                    {
+                        ast = asteroidPool[i];
+                        asteroidPoolIncluded[i] = true;
+                        break;
+                    }
+                }
+                
+                if( ast !== undefined )
+                {
+                    console.log("asteroid set");
+                    asteroids.push(ast);
+                    ast.addToScene();
+                }
+                else
+                {
+                    $('#myWinModal').modal({
+                        backdrop: 'static',
+                        keyboard: true
+                    }).show();  
+                }
             }
             
             function createAsteroid()
             {
                 // Create asteroids
                 //25 asteroids, random position around planet, random color, size 4
+                
+                var astIndex = 1;
+                
+                // Difficulty setting
+                if( difficultySelected === "easy" )
+                {
+                    astIndex = 1;
+                }
+                                // Difficulty setting
+                if( difficultySelected === "medium" )
+                {
+                    astIndex = 2;
+                }
+                                // Difficulty setting
+                if( difficultySelected === "hard" )
+                {
+                    astIndex = 3;        
+                }
+                                // Difficulty setting
+                if( difficultySelected === "survival" )
+                {
+                    astIndex = 3;        
+                }
+                
                 var size = Math.floor(Math.random() * 4) + 2;
-                var color = asteroidType[0];//asteroidType[Math.floor(Math.random() * 3) + 0];
+                var color = asteroidType[Math.floor(Math.random()*astIndex)];//asteroidType[Math.floor(Math.random() * 3) + 0];
                 var asteroid = new Asteroid( size, color, new THREE.Vector3());
 
                 var alpha = Math.random()*Math.PI*2;
@@ -603,23 +664,53 @@
                 //  asteroid.normalize();
                 //asteroid.multiplyScalar(200);
 
-                asteroids.push(asteroid);
+                //asteroids.push(asteroid);
+                return asteroid;
             }
             
             var delta = 0;
+            var gameOver = false;
+            var RANDOM_MULTIPLICATOR = 10;
             function render()
             {
+                
                 updateSize();
                 cameraController.UpdateCameraPosition();
                 
                 // Update the fireball
                 customUniforms.time.value += delta;
                 
+                var randomIndex = 1;
                 
-                var r = Math.floor(Math.random()*20);                
-                if( r == 0 )
+                // Difficulty setting
+                if( difficultySelected === "easy" )
                 {
-                    createAsteroid();
+                    randomIndex = 400;        
+                }
+                                // Difficulty setting
+                if( difficultySelected === "medium" )
+                {
+                    randomIndex = 300;        
+                }
+                                // Difficulty setting
+                if( difficultySelected === "hard" )
+                {
+                    randomIndex = 200;        
+                }
+                                // Difficulty setting
+                if( difficultySelected === "survival" )
+                {
+                    randomIndex = 100;        
+                }
+                
+                planetSphere.rotation.y += delta*Math.PI/30;
+                lavaSphere.rotation.y += delta*Math.PI/30;
+                
+                
+                var r = Math.floor(Math.random()*randomIndex*delta*RANDOM_MULTIPLICATOR);                
+                if( r == 0 && !gameOver ) // If the game is over, stop putting asteroids
+                {
+                    putAsteroidFromPool();
                 }
                 
                 //if( i >= planetSphere.geometry.vertices.length )
@@ -687,8 +778,12 @@
                                 
                 requestAnimationFrame( render );
                 
-                if(particleGroup !== undefined)
-                    particleGroup.tick( delta );
+                var pCount = parts.length;
+                
+                while(pCount > 0 && parts[pCount] !== undefined ) {
+                    parts[pCount].update();
+                    pCount --;
+                }
                 
                 renderer.render( scene, camera );
             }
@@ -723,9 +818,9 @@
                     </div>
                     
                     <p></p>
-                    <p><span style="color: rgb(58,101,146); padding-left:2em;">ICE</span> shield defends from <span>ICE</span> meteors</p>
-                    <p><span style="color: rgb(211,135,86); padding-left:2em;">FIRE</span> shield defends from <span>FIRE</span> meteors</p>
-                    <p><span style="color: rgb(197,202,208); padding-left:2em;">TITANIUM</span> shield defends from <span>SUPERNOVAS</span></p>
+                    <p><span style="color: rgb(58,101,146); padding-left:2em;">ICE</span> (cost 1) shield defends 3 impacts from <span>ICE</span> meteors</p>
+                    <p><span style="color: rgb(211,135,86); padding-left:2em;">FIRE</span> (cost 1) shield defends 3 impacts from <span>FIRE</span> meteors</p>
+                    <p><span style="color: rgb(197,202,208); padding-left:2em;">TITANIUM</span> (cost 2) shield defends 5 impacts from anything but <span>SUPERNOVAS</span></p>
                     
                     <p><span>3. </span>Don't let them get into your inner <span>CORE</span> or your planet <span>DIES</span></p>
                     
@@ -789,5 +884,39 @@
             </div><!-- /.modal-content -->
         </div><!-- /.modal-dialog -->
     </div><!-- /.modal -->
+        <div id="myWinModal" class="modal fade">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button id="goBack1" type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                        <h4 class="modal-title"><span>You Won!</span></h4>
+                </div>
+                <div class="modal-body">                   
+                    <p><span>Wanna try again?</span></p>
+                </div>
+                <div class="modal-footer">
+                    <button onclick="location.reload();" type="button" class="btn btn-default" data-dismiss="modal">Yes!</button>
+                    <button type="button" class="btn btn-default" data-dismiss="modal">No!</button>
+                </div>
+            </div><!-- /.modal-content -->
+        </div><!-- /.modal-dialog -->
+    </div><!-- /.modal --> 
+        <div id="myLoseModal" class="modal fade">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button id="goBack4" type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                        <h4 class="modal-title"><span>You Lost!</span></h4>
+                </div>
+                <div class="modal-body">                   
+                    <p><span>Wanna try again?</span></p>
+                </div>
+                <div class="modal-footer">
+                    <button onclick="location.reload();" type="button" class="btn btn-default" data-dismiss="modal">Yes!</button>
+                    <button type="button" class="btn btn-default" data-dismiss="modal">No!</button>
+                </div>
+            </div><!-- /.modal-content -->
+        </div><!-- /.modal-dialog -->
+    </div><!-- /.modal --> 
     </body>
 </html>

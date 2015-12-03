@@ -62,9 +62,8 @@ function createLavaSphere()
     }   );
 
     var ballGeometry = new THREE.SphereGeometry( 15, 64, 64 );
-    var ball = new THREE.Mesh(	ballGeometry, customMaterial );
-    scene.add( ball );
-    console.log('Lave sphere done');
+    lavaSphere = new THREE.Mesh(	ballGeometry, customMaterial );
+    scene.add( lavaSphere );
 }
 
 function getPlanetTexture(){
@@ -238,7 +237,9 @@ function CreateDefenseSphere()
     scene.add(defenseSphere);
 }
 
-var BACKGROUND_RADIUS = 100;
+var BACKGROUND_RADIUS = 10000;
+
+var score = 0;
 function createBackground()
 {
     // Objects
@@ -308,6 +309,9 @@ function changeDefenseAppearance( shield, materialIndex )
 
 function collideAsteroid( asteroid )
 {
+    if( gameOver )
+        return;
+    
     // update the picking ray with the camera and mouse position	
     raycaster.set( asteroid.asteroid.position.clone(), asteroid.option.velocity.clone().normalize() );
     raycaster.far = 0.8;
@@ -320,6 +324,23 @@ function collideAsteroid( asteroid )
         // GAME OVER, your core exploded
         scene.remove(asteroid.asteroid);
         asteroid.remove();
+        
+        $("#planetExplosion").get(0).play();
+        
+        var finalP = lavaSphere.position.clone();
+        
+        scene.remove(planetSphere);
+        scene.remove(defenseSphere);
+        scene.remove(lavaSphere);
+        
+        gameOver = true;
+        
+        $('#myLoseModal').modal({
+            backdrop: 'static',
+            keyboard: true
+        }).show();
+        
+        parts.push(new ExplodeAnimation(finalP.x, finalP.y));
         
         // Remove the asteroid from the array of asteroids
         var rindex = asteroids.indexOf(asteroid);
@@ -342,6 +363,13 @@ function collideAsteroid( asteroid )
 //        var clone = asteroid.asteroid.position.clone();
 //        createExplosion(clone.x,clone.y,clone.z);
         
+        if( $("#meteorImpact1").get(0).paused )
+            $("#meteorImpact1").get(0).play();
+        else if( $("#meteorImpact2").get(0).paused )
+            $("#meteorImpact2").get(0).play();
+        else if( $("#meteorImpact3").get(0).paused )
+            $("#meteorImpact3").get(0).play();
+        
         extrudeFaceInsideSphere( intersects[0].face.a, planetSphere.geometry, DENT_DEPTH, planetSphere.position );
         extrudeFaceInsideSphere( intersects[0].face.b, planetSphere.geometry, DENT_DEPTH, planetSphere.position );
         extrudeFaceInsideSphere( intersects[0].face.c, planetSphere.geometry, DENT_DEPTH, planetSphere.position );  
@@ -363,10 +391,38 @@ function collideAsteroid( asteroid )
     {
         var index = calculateShield( defenseSphere.geometry, intersects[0].face );
         
-        console.log( "st " + shields[index].shieldType + " aT " + asteroid.type );
+        //console.log( "st " + shields[index].shieldType + " aT " + asteroid.type );
         
-        if( shields[index].shieldType == asteroid.type )
+        // If an asteroid touches a shield
+        if( shields[index].shieldType != -1 )
         {
+            score++;
+            stardustScoreElement.text(score);
+            
+            if( $("#shieldBreaking1").get(0).paused )
+                $("#shieldBreaking1").get(0).play();
+            else if( $("#shieldBreaking2").get(0).paused )
+                $("#shieldBreaking2").get(0).play();
+            else if( $("#shieldBreaking3").get(0).paused )
+                $("#shieldBreaking3").get(0).play();
+
+            // If the shield is the same color or titanium, reduce the life once
+            if( shields[index].shieldType == asteroid.type || ( shields[index].shieldType == 2 && asteroid.type != 2 ) ) 
+            {
+                shields[index].life--;
+            }
+            // If the shield is different or it's supernova, break it
+            else if( shields[index].shieldType != asteroid.type || asteroid.type == 2 )
+            {
+                shields[index].life = 0;        
+            }
+            
+            if( shields[index].life == 0)
+            {
+                shields[index].shieldType = -1;
+                changeDefenseAppearance( index, 1 );
+            }
+            
             scene.remove(asteroid.asteroid);
             asteroid.remove();
 
@@ -397,6 +453,50 @@ function collideAsteroid( asteroid )
     /* Compute normals */
     planetSphere.geometry.computeFaceNormals();
     planetSphere.geometry.computeVertexNormals();
+}
+
+function ExplodeAnimation( x, y)
+{
+    var geometry = new THREE.Geometry();
+  
+    for (i = 0; i < totalObjects; i ++) 
+    { 
+        var vertex = new THREE.Vector3();
+        vertex.x = x;
+        vertex.y = y;
+        vertex.z = 0;
+  
+        geometry.vertices.push( vertex );
+        
+        dirs.push({x:(Math.random() * movementSpeed)-(movementSpeed/2),y:(Math.random() * movementSpeed)-(movementSpeed/2),z:(Math.random() *       movementSpeed)-(movementSpeed/2)});
+    }
+    
+    var material = new THREE.ParticleBasicMaterial( { size: objectSize,  color: 'red', side: THREE.DoubleSide });
+    var particles = new THREE.ParticleSystem( geometry, material );
+
+    this.object = particles;
+    this.status = true;
+
+    this.xDir = (Math.random() * movementSpeed)-(movementSpeed/2);
+    this.yDir = (Math.random() * movementSpeed)-(movementSpeed/2);
+    this.zDir = (Math.random() * movementSpeed)-(movementSpeed/2);
+
+    scene.add( this.object  ); 
+  
+    this.update = function(){
+    
+        if (this.status == true){
+            var pCount = totalObjects;
+            while(pCount--) {
+                
+                var particle =  this.object.geometry.vertices[pCount];
+                particle.y += dirs[pCount].y;
+                particle.x += dirs[pCount].x;
+                particle.z += dirs[pCount].z;
+            }
+            this.object.geometry.verticesNeedUpdate = true;
+        }      
+    }
 }
 
 /*
