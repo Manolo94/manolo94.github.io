@@ -1,0 +1,922 @@
+<html>
+    <head>
+        <style>
+			html, body {
+				width: 100%;
+				height: 100%;
+			}
+
+			body {
+				background-color: #ffffff;
+				margin: 0;
+				overflow: hidden;
+				font-family: arial;
+			}
+            .score{
+                font-size: 25pt;
+                color: rgb(186,85,211);
+            }
+            
+                
+            #stardustValue{
+            }
+
+			#blocker {
+				position: absolute;
+				width: 100%;
+				height: 100%;
+				background-color: rgba(0,0,0,0.5);
+			}
+
+			#instructions {
+
+				width: 100%;
+				height: 100%;
+
+				display: -webkit-box;
+				display: -moz-box;
+				display: box;
+
+				-webkit-box-orient: horizontal;
+				-moz-box-orient: horizontal;
+				box-orient: horizontal;
+
+				-webkit-box-pack: center;
+				-moz-box-pack: center;
+				box-pack: center;
+
+				-webkit-box-align: center;
+				-moz-box-align: center;
+				box-align: center;
+
+				color: #ffffff;
+				text-align: center;
+
+				cursor: pointer;
+			}
+    </style>    
+    <script src="js/jquery_v1.9.0.js"></script>
+    <link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+    <script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+<!--    <script src="events.js"></script>-->
+    <style>
+        html { overflow-y: hidden; overflow-x: hidden;}
+        span {font-weight: bolder; font-size: 15px;}
+    </style>    
+        <script src="js/controls.js"></script>
+        <script src="libs/three.js"></script>
+        <script src="js/SPE.min.js"></script>  
+        <script src="libs/threex.keyboardstate.js"></script>
+        <script src="libs/threex.text.js"></script>
+        <script src="js/GPUParticleSystem.js" charset="utf-8"></script>
+        <script src="js/asteroid.js"></script>    
+        <script src="js/shield.js"></script>
+        <script src="js/inputBehavior.js"></script>
+        <script src="js/planetBehaviour.js"></script>
+        <script src="js/utils.js"></script>
+    </head>
+    <body>
+        
+        <!-- input audio  -->
+        <audio id = "spaceMusic" src = "sounds/spaceMusic.mp3" preload="auto" loop="true" autoplay ="true"></audio>
+        <audio id = "planetExplosion" src = "sounds/planetExplosion.wav" preload="auto"></audio>
+        <audio id = "meteorImpact1" src = "sounds/meteorImpact.wav" preload="auto"></audio>
+        <audio id = "meteorImpact2" src = "sounds/meteorImpact.wav" preload="auto"></audio>
+        <audio id = "meteorImpact3" src = "sounds/meteorImpact.wav" preload="auto"></audio>
+        <audio id = "shieldBreaking1" src = "sounds/shieldBreaking.aiff" preload="auto"></audio>
+        <audio id = "shieldBreaking2" src = "sounds/shieldBreaking.aiff" preload="auto"></audio>
+        <audio id = "shieldBreaking3" src = "sounds/shieldBreaking.aiff" preload="auto"></audio>
+        
+        <script src="js/events.js"></script>
+        <div class="row" style="z-index:1000; position: absolute; margin-left:50px; margin-top:50px;" >
+            <div class="col-md-8">
+              <div class="col-md-4" >        
+                  <img id="blue" class="shield" style="height:50px;" src="images/blue-shield.png" alt="blue shield">   
+              </div>
+              <div class="col-md-4"  >
+                  <img id="red" class="shield" style="height:50px;" src="images/red-shield.png" alt="red shield">
+              </div>
+                <div class="col-md-4"  >
+                  <img id="titanium" class="shield" style="height:50px;" src="images/titanium-shield.png" alt="red shield">   
+              </div>
+            </div>
+            <div class="col-md-4"><button id="menuButton" style="margin-top:12%;" type="button" class="btn btn-primary">Menu</button></div>
+        </div>
+        <div class="row" style="z-index:1000; position: absolute; margin-left:50px; margin-top:150px;" >
+            <div class="score row" style="width:1000%">
+                <div class="col-md-6">Stardust: <span id="scoreValue" class="score">0</span></div>
+            </div>       
+        </div>
+        
+        <div id="container">
+            <div id="blocker">
+                <div id="instructions">
+                </div>
+            </div>
+        </div>
+        
+        
+        <!-- ---------------- Custom Shader Code ------------------------ -->
+        <script id="planetCoreVertexShader" type="x-shader/x-vertex">
+        uniform sampler2D noiseTexture;
+        uniform float noiseScale;
+
+        uniform sampler2D bumpTexture;
+        uniform float bumpSpeed;
+        uniform float bumpScale;
+
+        uniform float time;
+
+        varying vec2 vUv;
+
+        void main() 
+        { 
+            vUv = uv;
+
+            vec2 uvTimeShift = vUv + vec2( 1.1, 1.9 ) * time * bumpSpeed;
+            vec4 noiseGeneratorTimeShift = texture2D( noiseTexture, uvTimeShift );
+            vec2 uvNoiseTimeShift = vUv + noiseScale * vec2( noiseGeneratorTimeShift.r, noiseGeneratorTimeShift.g );
+            // below, using uvTimeShift seems to result in more of a "rippling" effect
+            //   while uvNoiseTimeShift seems to result in more of a "shivering" effect
+            vec4 bumpData = texture2D( bumpTexture, uvTimeShift );
+
+            // move the position along the normal
+            //  but displace the vertices at the poles by the same amount
+            float displacement = ( vUv.y > 0.999 || vUv.y < 0.001 ) ? 
+                bumpScale * (0.3 + 0.02 * sin(time)) :  
+                bumpScale * bumpData.r;
+            vec3 newPosition = position + normal * displacement;
+
+            gl_Position = projectionMatrix * modelViewMatrix * vec4( newPosition, 1.0 );
+        }
+        </script>
+
+        <!-- fragment shader a.k.a. pixel shader -->
+        <script id="planetCoreFragmentShader" type="x-shader/x-vertex"> 
+        uniform sampler2D baseTexture;
+        uniform float baseSpeed;
+        uniform float repeatS;
+        uniform float repeatT;
+
+        uniform sampler2D noiseTexture;
+        uniform float noiseScale;
+
+        uniform sampler2D blendTexture;
+        uniform float blendSpeed;
+        uniform float blendOffset;
+
+        uniform float time;
+        uniform float alpha;
+
+        varying vec2 vUv;
+
+        void main() 
+        {
+            vec2 uvTimeShift = vUv + vec2( -0.7, 1.5 ) * time * baseSpeed;	
+            vec4 noiseGeneratorTimeShift = texture2D( noiseTexture, uvTimeShift );
+            vec2 uvNoiseTimeShift = vUv + noiseScale * vec2( noiseGeneratorTimeShift.r, noiseGeneratorTimeShift.b );
+            vec4 baseColor = texture2D( baseTexture, uvNoiseTimeShift * vec2(repeatS, repeatT) );
+
+            vec2 uvTimeShift2 = vUv + vec2( 1.3, -1.7 ) * time * blendSpeed;	
+            vec4 noiseGeneratorTimeShift2 = texture2D( noiseTexture, uvTimeShift2 );
+            vec2 uvNoiseTimeShift2 = vUv + noiseScale * vec2( noiseGeneratorTimeShift2.g, noiseGeneratorTimeShift2.b );
+            vec4 blendColor = texture2D( blendTexture, uvNoiseTimeShift2 * vec2(repeatS, repeatT) ) - blendOffset * vec4(1.0, 1.0, 1.0, 1.0);
+
+            vec4 theColor = baseColor + blendColor;
+            theColor.a = alpha;
+            gl_FragColor = theColor;
+        }  
+        </script>
+        
+        <script type="x-shader/x-vertex" id="asteroidVertexShader">
+
+                //
+                // GLSL textureless classic 3D noise "cnoise",
+                // with an RSL-style periodic variant "pnoise".
+                // Author:  Stefan Gustavson (stefan.gustavson@liu.se)
+                // Version: 2011-10-11
+                //
+                // Many thanks to Ian McEwan of Ashima Arts for the
+                // ideas for permutation and gradient selection.
+                //
+                // Copyright (c) 2011 Stefan Gustavson. All rights reserved.
+                // Distributed under the MIT license. See LICENSE file.
+                // https://github.com/ashima/webgl-noise
+                //
+
+                vec3 mod289(vec3 x)
+                {
+                  return x - floor(x * (1.0 / 289.0)) * 289.0;
+                }
+
+                vec4 mod289(vec4 x)
+                {
+                  return x - floor(x * (1.0 / 289.0)) * 289.0;
+                }
+
+                vec4 permute(vec4 x)
+                {
+                  return mod289(((x*34.0)+1.0)*x);
+                }
+
+                vec4 taylorInvSqrt(vec4 r)
+                {
+                  return 1.79284291400159 - 0.85373472095314 * r;
+                }
+
+                vec3 fade(vec3 t) {
+                  return t*t*t*(t*(t*6.0-15.0)+10.0);
+                }
+
+                // Classic Perlin noise
+                float cnoise(vec3 P)
+                {
+                  vec3 Pi0 = floor(P); // Integer part for indexing
+                  vec3 Pi1 = Pi0 + vec3(1.0); // Integer part + 1
+                  Pi0 = mod289(Pi0);
+                  Pi1 = mod289(Pi1);
+                  vec3 Pf0 = fract(P); // Fractional part for interpolation
+                  vec3 Pf1 = Pf0 - vec3(1.0); // Fractional part - 1.0
+                  vec4 ix = vec4(Pi0.x, Pi1.x, Pi0.x, Pi1.x);
+                  vec4 iy = vec4(Pi0.yy, Pi1.yy);
+                  vec4 iz0 = Pi0.zzzz;
+                  vec4 iz1 = Pi1.zzzz;
+
+                  vec4 ixy = permute(permute(ix) + iy);
+                  vec4 ixy0 = permute(ixy + iz0);
+                  vec4 ixy1 = permute(ixy + iz1);
+
+                  vec4 gx0 = ixy0 * (1.0 / 7.0);
+                  vec4 gy0 = fract(floor(gx0) * (1.0 / 7.0)) - 0.5;
+                  gx0 = fract(gx0);
+                  vec4 gz0 = vec4(0.5) - abs(gx0) - abs(gy0);
+                  vec4 sz0 = step(gz0, vec4(0.0));
+                  gx0 -= sz0 * (step(0.0, gx0) - 0.5);
+                  gy0 -= sz0 * (step(0.0, gy0) - 0.5);
+
+                  vec4 gx1 = ixy1 * (1.0 / 7.0);
+                  vec4 gy1 = fract(floor(gx1) * (1.0 / 7.0)) - 0.5;
+                  gx1 = fract(gx1);
+                  vec4 gz1 = vec4(0.5) - abs(gx1) - abs(gy1);
+                  vec4 sz1 = step(gz1, vec4(0.0));
+                  gx1 -= sz1 * (step(0.0, gx1) - 0.5);
+                  gy1 -= sz1 * (step(0.0, gy1) - 0.5);
+
+                  vec3 g000 = vec3(gx0.x,gy0.x,gz0.x);
+                  vec3 g100 = vec3(gx0.y,gy0.y,gz0.y);
+                  vec3 g010 = vec3(gx0.z,gy0.z,gz0.z);
+                  vec3 g110 = vec3(gx0.w,gy0.w,gz0.w);
+                  vec3 g001 = vec3(gx1.x,gy1.x,gz1.x);
+                  vec3 g101 = vec3(gx1.y,gy1.y,gz1.y);
+                  vec3 g011 = vec3(gx1.z,gy1.z,gz1.z);
+                  vec3 g111 = vec3(gx1.w,gy1.w,gz1.w);
+
+                  vec4 norm0 = taylorInvSqrt(vec4(dot(g000, g000), dot(g010, g010), dot(g100, g100), dot(g110, g110)));
+                  g000 *= norm0.x;
+                  g010 *= norm0.y;
+                  g100 *= norm0.z;
+                  g110 *= norm0.w;
+                  vec4 norm1 = taylorInvSqrt(vec4(dot(g001, g001), dot(g011, g011), dot(g101, g101), dot(g111, g111)));
+                  g001 *= norm1.x;
+                  g011 *= norm1.y;
+                  g101 *= norm1.z;
+                  g111 *= norm1.w;
+
+                  float n000 = dot(g000, Pf0);
+                  float n100 = dot(g100, vec3(Pf1.x, Pf0.yz));
+                  float n010 = dot(g010, vec3(Pf0.x, Pf1.y, Pf0.z));
+                  float n110 = dot(g110, vec3(Pf1.xy, Pf0.z));
+                  float n001 = dot(g001, vec3(Pf0.xy, Pf1.z));
+                  float n101 = dot(g101, vec3(Pf1.x, Pf0.y, Pf1.z));
+                  float n011 = dot(g011, vec3(Pf0.x, Pf1.yz));
+                  float n111 = dot(g111, Pf1);
+
+                  vec3 fade_xyz = fade(Pf0);
+                  vec4 n_z = mix(vec4(n000, n100, n010, n110), vec4(n001, n101, n011, n111), fade_xyz.z);
+                  vec2 n_yz = mix(n_z.xy, n_z.zw, fade_xyz.y);
+                  float n_xyz = mix(n_yz.x, n_yz.y, fade_xyz.x); 
+                  return 2.2 * n_xyz;
+                }
+
+                // Classic Perlin noise, periodic variant
+                float pnoise(vec3 P, vec3 rep)
+                {
+                  vec3 Pi0 = mod(floor(P), rep); // Integer part, modulo period
+                  vec3 Pi1 = mod(Pi0 + vec3(1.0), rep); // Integer part + 1, mod period
+                  Pi0 = mod289(Pi0);
+                  Pi1 = mod289(Pi1);
+                  vec3 Pf0 = fract(P); // Fractional part for interpolation
+                  vec3 Pf1 = Pf0 - vec3(1.0); // Fractional part - 1.0
+                  vec4 ix = vec4(Pi0.x, Pi1.x, Pi0.x, Pi1.x);
+                  vec4 iy = vec4(Pi0.yy, Pi1.yy);
+                  vec4 iz0 = Pi0.zzzz;
+                  vec4 iz1 = Pi1.zzzz;
+
+                  vec4 ixy = permute(permute(ix) + iy);
+                  vec4 ixy0 = permute(ixy + iz0);
+                  vec4 ixy1 = permute(ixy + iz1);
+
+                  vec4 gx0 = ixy0 * (1.0 / 7.0);
+                  vec4 gy0 = fract(floor(gx0) * (1.0 / 7.0)) - 0.5;
+                  gx0 = fract(gx0);
+                  vec4 gz0 = vec4(0.5) - abs(gx0) - abs(gy0);
+                  vec4 sz0 = step(gz0, vec4(0.0));
+                  gx0 -= sz0 * (step(0.0, gx0) - 0.5);
+                  gy0 -= sz0 * (step(0.0, gy0) - 0.5);
+
+                  vec4 gx1 = ixy1 * (1.0 / 7.0);
+                  vec4 gy1 = fract(floor(gx1) * (1.0 / 7.0)) - 0.5;
+                  gx1 = fract(gx1);
+                  vec4 gz1 = vec4(0.5) - abs(gx1) - abs(gy1);
+                  vec4 sz1 = step(gz1, vec4(0.0));
+                  gx1 -= sz1 * (step(0.0, gx1) - 0.5);
+                  gy1 -= sz1 * (step(0.0, gy1) - 0.5);
+
+                  vec3 g000 = vec3(gx0.x,gy0.x,gz0.x);
+                  vec3 g100 = vec3(gx0.y,gy0.y,gz0.y);
+                  vec3 g010 = vec3(gx0.z,gy0.z,gz0.z);
+                  vec3 g110 = vec3(gx0.w,gy0.w,gz0.w);
+                  vec3 g001 = vec3(gx1.x,gy1.x,gz1.x);
+                  vec3 g101 = vec3(gx1.y,gy1.y,gz1.y);
+                  vec3 g011 = vec3(gx1.z,gy1.z,gz1.z);
+                  vec3 g111 = vec3(gx1.w,gy1.w,gz1.w);
+
+                  vec4 norm0 = taylorInvSqrt(vec4(dot(g000, g000), dot(g010, g010), dot(g100, g100), dot(g110, g110)));
+                  g000 *= norm0.x;
+                  g010 *= norm0.y;
+                  g100 *= norm0.z;
+                  g110 *= norm0.w;
+                  vec4 norm1 = taylorInvSqrt(vec4(dot(g001, g001), dot(g011, g011), dot(g101, g101), dot(g111, g111)));
+                  g001 *= norm1.x;
+                  g011 *= norm1.y;
+                  g101 *= norm1.z;
+                  g111 *= norm1.w;
+
+                  float n000 = dot(g000, Pf0);
+                  float n100 = dot(g100, vec3(Pf1.x, Pf0.yz));
+                  float n010 = dot(g010, vec3(Pf0.x, Pf1.y, Pf0.z));
+                  float n110 = dot(g110, vec3(Pf1.xy, Pf0.z));
+                  float n001 = dot(g001, vec3(Pf0.xy, Pf1.z));
+                  float n101 = dot(g101, vec3(Pf1.x, Pf0.y, Pf1.z));
+                  float n011 = dot(g011, vec3(Pf0.x, Pf1.yz));
+                  float n111 = dot(g111, Pf1);
+
+                  vec3 fade_xyz = fade(Pf0);
+                  vec4 n_z = mix(vec4(n000, n100, n010, n110), vec4(n001, n101, n011, n111), fade_xyz.z);
+                  vec2 n_yz = mix(n_z.xy, n_z.zw, fade_xyz.y);
+                  float n_xyz = mix(n_yz.x, n_yz.y, fade_xyz.x); 
+                  return 2.2 * n_xyz;
+                }
+
+                varying vec2 vUv;
+                varying float noise;
+                uniform float time;
+
+                //these values affect the form of the asteroid
+                float turbulence( vec3 p ) {
+                  float w = 100.0;
+                  float t = -.5;
+                  for (float f = 1.0 ; f <= 10.0 ; f++ ){
+                    float power = pow( 2.7, f );
+                    t += abs( pnoise( vec3( power * p ), vec3( 10.0, 10.0, 10.0 ) ) / power );
+                  }
+                  return t;
+                }
+
+                void main() {
+
+                  vUv = uv;
+
+                  noise = 10.0 *  -.10 * turbulence( .5 * normal + time );
+                  float b = 5.0 * pnoise( 0.05 * position + vec3( 2.0 * time ), vec3( 100.0 ) );
+                  float displacement = - 10. * noise + b;
+
+                  vec3 newPosition = position + normal * displacement;
+                  gl_Position = projectionMatrix * modelViewMatrix * vec4( newPosition, 1.0 );
+
+                }
+
+          </script>
+
+          <script type="x-shader/x-vertex" id="asteroidFragmentShader">
+                varying vec2 vUv;
+                varying float noise;
+                uniform sampler2D tExplosion;
+
+                float random( vec3 scale, float seed ){
+                  return fract( sin( dot( gl_FragCoord.xyz + seed, scale ) ) * 43758.5453 + seed ) ;
+                }
+
+                void main() {
+
+                  float r = .01 * random( vec3( 12.9898, 78.233, 151.7182 ), 0.0 );
+                  vec2 tPos = vec2( 0, 1.0 - 1.3 * noise + r );
+                  vec4 color = texture2D( tExplosion, tPos );
+                  gl_FragColor = vec4( color.rgb, 1.0 );
+
+                }
+          </script>
+        <!-- ----------------------------------------------------------- -->
+        
+        <script type="text/javascript">
+            var clock = new THREE.Clock();
+            var camera, cameraController, scene, renderer;
+            cameraHorizontalAngle = 0, cameraVerticalAngle = 0;
+            var pointer, raycaster, mouse = {};
+            var asteroidType = ['ice', 'fire', 'nova'];
+            var asteroids = [];
+            var asteroidPool = [];
+            var asteroidPoolIncluded = [];
+            
+            var windowWidth, windowHeight;
+            
+            var planetSphere, defenseSphere, lavaSphere;
+            
+            var PLANET_RADIUS = 30, DEFENSE_RADIUS = 35;
+        
+            
+            var sPosition;
+            var movementSpeed = 80;
+            var totalObjects = 1000;
+            var objectSize = 1;
+            var sizeRandomness = 4000;
+            var colors = [0xFF0FFF, 0xCCFF00, 0xFF000F, 0x996600, 0xFFFFFF];
+            /////////////////////////////////
+            var dirs = [];
+            var parts = [];
+                
+            function menu()
+            {
+                $('#myModal').modal({
+                    backdrop: 'static',
+                    keyboard: true
+                }).show();
+                
+                
+                tick = 0; spawnRate = 1500;
+                
+                container = document.getElementById( 'container' );
+                
+                keyboard = new THREEx.KeyboardState();
+                
+                camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 0.1, 15000 );
+                camera.position.y = 10;
+                
+                // Generate the camera controller
+                cameraController = new Controls.PlanetCameraRotationController( camera );
+                
+                scene = new THREE.Scene();
+                scene.fog = new THREE.FogExp2( 0x000000, 0.06 );
+                
+                renderer = new THREE.WebGLRenderer({antialias:true});
+                renderer.setClearColor( 0x000000, 1.0 );
+                renderer.setSize( window.innerWidth, window.innerHeight );
+                container.appendChild( renderer.domElement );
+                renderer.shadowMap.enabled = true;
+                
+                // Light
+                var point1 = new THREE.PointLight(0xffffff, 1, 1000);
+                point1.position.x = -100;
+                point1.position.y = 100;
+                point1.position.z = 0;
+                
+                //Debug light                
+                var point1d = new THREE.PointLight(0xffffff, 1, 1000);
+                point1d.position.x = 100;
+                point1d.position.y = -100;
+                point1d.position.z = 0;
+                
+                // Lava lights
+                var point2 = new THREE.PointLight(0xff0000, 4.0, PLANET_RADIUS*2);
+                //point2.position.x = 10;
+                //point2.position.y = -10;
+                point2.position.z = PLANET_RADIUS/2;
+                
+                var point3 = new THREE.PointLight(0xff0000, 4.0, PLANET_RADIUS*2);
+                //point2.position.x = 10;
+                //point2.position.y = -10;
+                point3.position.z = -PLANET_RADIUS/2;
+                
+                var point4 = new THREE.PointLight(0xff0000, 4.0, PLANET_RADIUS*2);
+                //point2.position.x = 10;
+                //point2.position.y = -10;
+                point4.position.y = PLANET_RADIUS/2;
+                
+                var point5 = new THREE.PointLight(0xff0000, 4.0, PLANET_RADIUS*2);
+                //point2.position.x = 10;
+                //point2.position.y = -10;
+                point5.position.y = -PLANET_RADIUS/2;
+                
+                var light = new THREE.AmbientLight( 0x666666 );//0x101010 ); // soft white light
+                
+                scene.add(point1);
+                scene.add(point2);
+                scene.add(point3);
+                scene.add(point4);
+                scene.add(point5);
+                scene.add( light );
+                
+                scene.add( point1d );
+                
+                //point2.position.x = 10;
+                //point2.position.y = -10;
+                point3.position.z = -PLANET_RADIUS/2;
+                
+                createBackground();
+                
+                createLavaSphere();
+                
+                CreateDefenseSphere();              
+            }
+            
+            function init()
+            {
+                               // Display initial score
+                score = 2;
+                
+                // Difficulty setting
+                if( difficultySelected === "easy" )
+                {
+                    $('#red').hide();
+                    $('#titanium').hide();
+                    score = 10;
+                }
+                                // Difficulty setting
+                if( difficultySelected === "medium" )
+                {
+                    $('#titanium').hide();
+                    score = 10;
+                }
+                                if( difficultySelected === "hard" )
+                {
+                    score = 10;
+                }
+                
+                CreatePlanetSphere();
+                
+                GenerateAsteroidPool( 50 );
+                      
+                putAsteroidFromPool();
+                putAsteroidFromPool();
+                putAsteroidFromPool();
+                
+                camera.lookAt(planetSphere.position);
+                
+                document.addEventListener( 'mousemove', onDocumentMouseMove, false );
+                document.addEventListener( 'mousedown', onDocumentMouseDown, false );
+                document.addEventListener( 'mouseup'  , onDocumentMouseUp,   false );
+                
+                raycaster = new THREE.Raycaster();
+                
+ 
+                stardustScoreElement.text(score);
+                
+                //parts.push(new ExplodeAnimation(0, 0));
+
+                render();
+            }
+            
+            function GenerateAsteroidPool( numOfAsteroids )
+            {
+                for( var i = 0; i < numOfAsteroids; i++ )
+                {
+                    asteroidPoolIncluded[i] = false;
+                    asteroidPool[i] = createAsteroid();
+                }
+            }
+            
+            function putAsteroidFromPool()
+            {
+                var ast;
+                
+                for( var i = 0; i < asteroidPool.length; i++ )
+                {
+                    if( asteroidPoolIncluded[i] === false && asteroidPool[i] !== undefined )
+                    {
+                        ast = asteroidPool[i];
+                        asteroidPoolIncluded[i] = true;
+                        break;
+                    }
+                }
+                
+                if( ast !== undefined )
+                {
+                    console.log("asteroid set");
+                    asteroids.push(ast);
+                    ast.addToScene();
+                }
+                else
+                {
+                    $('#myWinModal').modal({
+                        backdrop: 'static',
+                        keyboard: true
+                    }).show();  
+                }
+            }
+            
+            function createAsteroid()
+            {
+                // Create asteroids
+                //25 asteroids, random position around planet, random color, size 4
+                
+                var astIndex = 1;
+                
+                // Difficulty setting
+                if( difficultySelected === "easy" )
+                {
+                    astIndex = 1;
+                }
+                                // Difficulty setting
+                if( difficultySelected === "medium" )
+                {
+                    astIndex = 2;
+                }
+                                // Difficulty setting
+                if( difficultySelected === "hard" )
+                {
+                    astIndex = 3;        
+                }
+                                // Difficulty setting
+                if( difficultySelected === "survival" )
+                {
+                    astIndex = 3;        
+                }
+                
+                var size = Math.floor(Math.random() * 4) + 2;
+                var color = asteroidType[Math.floor(Math.random()*astIndex)];//asteroidType[Math.floor(Math.random() * 3) + 0];
+                var asteroid = new Asteroid( size, color, new THREE.Vector3());
+
+                var alpha = Math.random()*Math.PI*2;
+                var beta = Math.random()*Math.PI*2;
+                var sphereRadius = Math.random()*100 + 200;
+                var speed = Math.random()*1.0 + 0.8;
+
+                var circleRadius = Math.cos(beta)*sphereRadius;
+
+                asteroid.positionX( Math.cos(alpha)*circleRadius );
+                asteroid.positionY( Math.sin(alpha)*circleRadius );
+                asteroid.positionZ( Math.sin(beta)*sphereRadius );
+
+                var velTowardPlanet = asteroid.asteroid.position.clone().negate().normalize().multiplyScalar(0.8);
+                //console.log(velTowardPlanet);
+                asteroid.option.velocity = velTowardPlanet;
+
+                //  asteroid.normalize();
+                //asteroid.multiplyScalar(200);
+
+                //asteroids.push(asteroid);
+                return asteroid;
+            }
+            
+            var delta = 0;
+            var gameOver = false;
+            var RANDOM_MULTIPLICATOR = 10;
+            function render()
+            {
+                
+                updateSize();
+                cameraController.UpdateCameraPosition();
+                
+                // Update the fireball
+                customUniforms.time.value += delta;
+                
+                var randomIndex = 1;
+                
+                // Difficulty setting
+                if( difficultySelected === "easy" )
+                {
+                    randomIndex = 400;        
+                }
+                                // Difficulty setting
+                if( difficultySelected === "medium" )
+                {
+                    randomIndex = 300;        
+                }
+                                // Difficulty setting
+                if( difficultySelected === "hard" )
+                {
+                    randomIndex = 200;        
+                }
+                                // Difficulty setting
+                if( difficultySelected === "survival" )
+                {
+                    randomIndex = 100;        
+                }
+                
+                planetSphere.rotation.y += delta*Math.PI/30;
+                lavaSphere.rotation.y += delta*Math.PI/30;
+                
+                
+                var r = Math.floor(Math.random()*randomIndex*delta*RANDOM_MULTIPLICATOR);                
+                if( r == 0 && !gameOver ) // If the game is over, stop putting asteroids
+                {
+                    putAsteroidFromPool();
+                }
+                
+                //if( i >= planetSphere.geometry.vertices.length )
+                    //i = 0;
+                //planetSphere.geometry.vertices[i].z += 1;
+                //planetSphere.geometry.verticesNeedUpdate = true;
+                
+                //i++;
+                
+                //------------------ASTEROID ANIMATION-----------------
+                      tick += delta;
+
+                      if (tick < 0) tick = 0;
+
+                      if (delta > 0) {
+
+                          //move the asteroids                         
+                          for(var i = 0; i < asteroids.length; i++)
+                          {
+                              asteroids[i].rotationXYZ(0.02); 
+                          }
+                          
+//                          asteroid1.positionX(-Math.sin(tick * asteroid1.spawnOptions.horizontalSpeed) * 60);
+//                          asteroid1.rotationXYZ(0.02);                          
+
+//                          asteroid2.positionX(Math.sin(tick * asteroid2.spawnOptions.horizontalSpeed) * 50);
+//                          asteroid2.rotationXYZ(0.02);
+//
+//                          asteroid3.positionX(Math.sin(tick * asteroid3.spawnOptions.horizontalSpeed) * 40);
+//                          asteroid3.rotationXYZ(0.02);
+                          
+                          
+
+                        for (var x = 0; x < spawnRate * delta; x++) {
+                            //spawn particles
+                            for(var i = 0; i < asteroids.length; i++)
+                            {
+                                asteroids[i].partSystem.spawnParticle(asteroids[i].option);
+                            }
+                        }
+                      }
+                      //update the particle system
+                      for(var i = 0; i < asteroids.length; i++)
+                      {
+                          asteroids[i].partSystem.update(tick);
+                          asteroids[i].update();
+                          collideAsteroid(asteroids[i]);
+                          //asteroids[i].positionX(Math.sin(tick * 1) * 40);
+                      }
+                
+                //--------------------------------------------------------
+                
+                /*cameraAngle += delta*Math.PI / 40;
+                cameraAngle += delta*Math.PI / 10;
+                if( cameraAngle >= 2*Math.PI )
+                    cameraAngle = 0;
+
+                camera.position.x = Math.sin( cameraAngle ) *75;
+                camera.position.y = Math.cos( cameraAngle ) *75;
+                //camera.position.z = */
+                
+                camera.lookAt(planetSphere.position);
+                
+                delta = clock.getDelta();
+                                
+                requestAnimationFrame( render );
+                
+                var pCount = parts.length;
+                
+                while(pCount > 0 && parts[pCount] !== undefined ) {
+                    parts[pCount].update();
+                    pCount --;
+                }
+                
+                renderer.render( scene, camera );
+            }
+            
+            window.onload = menu;
+            
+        </script>
+        <div id="myModal" class="modal fade">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button id="closeInstructions" type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                        <h4 class="modal-title"><span>Planet Defender!</span></h4>
+                </div>
+                <div class="modal-body">
+                    
+                    <p><span>INSTRUCTIONS</span></p>
+                    <p><span>1. </span>Accumulate <span style="color: rgb(186,85,211);">STARDUST</span> to create/upgrade <span>SHIELDS</span></p>
+                                      
+                    <p><span>2. </span>Use the <span>SHIELDS</span> to protect your planet</p>
+                    
+                    <div class="row" style="margin-left:12%;">
+                        <div class="col-md-4">
+                            <img style="height: 50px;" src="images/blue-shield.png" alt="">
+                        </div>
+                        <div class="col-md-4">
+                            <img style="height:50px;" src="images/red-shield.png" alt="">
+                        </div>
+                        <div class="col-md-4">
+                            <img style="height:50px;" src="images/titanium-shield.png" alt="">
+                        </div>
+                    </div>
+                    
+                    <p></p>
+                    <p><span style="color: rgb(58,101,146); padding-left:2em;">ICE</span> (cost 1) shield defends 3 impacts from <span>ICE</span> meteors</p>
+                    <p><span style="color: rgb(211,135,86); padding-left:2em;">FIRE</span> (cost 1) shield defends 3 impacts from <span>FIRE</span> meteors</p>
+                    <p><span style="color: rgb(197,202,208); padding-left:2em;">TITANIUM</span> (cost 2) shield defends 5 impacts from anything but <span>SUPERNOVAS</span></p>
+                    
+                    <p><span>3. </span>Don't let them get into your inner <span>CORE</span> or your planet <span>DIES</span></p>
+                    
+                    <p><span>CONTROLS</span></p>
+                    
+                    <p style="padding-left:2em;"><span>MOUSE:</span> move camera</p>
+                    <p style="padding-left:2em;"><span>CTRL + MOUSE:</span> move shields</p>
+  
+                    <p><span>BEFORE PLAYING</span></p>
+                    
+                    <p>Select your <span>PLANET</span></p>                 
+                    <div class="row">
+                        <div class="col-md-4">
+                            <a href="#" class="thumbnail" data-toggle="tooltip" title="Mars">
+                              <img  id="mars" class="planet" style="height: 50px;" src="images/mars.jpg" alt="">
+                            </a>
+                        </div>
+                        <div class="col-md-4">
+                            <a href="#"  class="thumbnail" data-toggle="tooltip" title="Earth">
+                              <img id="earth" class="planet" style="height:50px;" src="images/earth.jpg" alt="">
+                            </a>
+                        </div>
+                        <div class="col-md-4">
+                            <a href="#" class="thumbnail" data-toggle="tooltip" title="Jupiter">
+                              <img id="jupiter" class="planet"style="height:50px;" src="images/jupiter.jpg" alt="">
+                            </a>
+                        </div>
+                    </div>
+                    <p>Select a <span>LEVEL</span> of difficulty</p>
+                    <div class="row">
+                        <div class="col-md-3">
+                            <a href="#" class="thumbnail" data-toggle="tooltip" title="Easy">
+                              <img id="easy" style="height: 50px;" class="difficulty" src="images/easy.png" alt="">
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="#" class="thumbnail" data-toggle="tooltip" title="Medium">
+                              <img id="medium" style="height:50px;" class="difficulty" src="images/medium.png" alt="">
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="#" class="thumbnail" data-toggle="tooltip" title="Hard">
+                              <img id="hard" style="height:50px;" class="difficulty" src="images/hard.png" alt="">
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="#" class="thumbnail" data-toggle="tooltip" title="Survival">
+                              <img id="survival" style="height:50px;" class="difficulty" src="images/survival.png" alt="">
+                            </a>
+                        </div>
+                    </div>
+
+                    <p></p>
+                    
+                    <p><span>Have fun!</span></p>
+                </div>
+                <div  id="closeInstructions" class="modal-footer">
+                    <button id="playButton" type="button" class="btn btn-default" data-dismiss="modal">Play!</button>
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+                </div>
+            </div><!-- /.modal-content -->
+        </div><!-- /.modal-dialog -->
+    </div><!-- /.modal -->
+        <div id="myWinModal" class="modal fade">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button id="goBack1" type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                        <h4 class="modal-title"><span>You Won!</span></h4>
+                </div>
+                <div class="modal-body">                   
+                    <p><span>Wanna try again?</span></p>
+                </div>
+                <div class="modal-footer">
+                    <button onclick="location.reload();" type="button" class="btn btn-default" data-dismiss="modal">Yes!</button>
+                    <button type="button" class="btn btn-default" data-dismiss="modal">No!</button>
+                </div>
+            </div><!-- /.modal-content -->
+        </div><!-- /.modal-dialog -->
+    </div><!-- /.modal --> 
+        <div id="myLoseModal" class="modal fade">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button id="goBack4" type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                        <h4 class="modal-title"><span>You Lost!</span></h4>
+                </div>
+                <div class="modal-body">                   
+                    <p><span>Wanna try again?</span></p>
+                </div>
+                <div class="modal-footer">
+                    <button onclick="location.reload();" type="button" class="btn btn-default" data-dismiss="modal">Yes!</button>
+                    <button type="button" class="btn btn-default" data-dismiss="modal">No!</button>
+                </div>
+            </div><!-- /.modal-content -->
+        </div><!-- /.modal-dialog -->
+    </div><!-- /.modal --> 
+    </body>
+</html>
