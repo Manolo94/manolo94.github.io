@@ -56,8 +56,6 @@ function onDocumentMouseMove( event )
     {
         defenseSphere.rotation.y -= mouseVelX*0.7;
         defenseSphere.rotation.z -= mouseVelY*0.7;
-        planetSphere.rotation.y -= mouseVelX*0.7;
-        planetSphere.rotation.z -= mouseVelY*0.7;
     }
 }
 
@@ -114,13 +112,13 @@ function onDocumentMouseDown( event )
     mouseDownY = mouse.y;
     
     // update the picking ray with the camera and mouse position	
-    raycaster.setFromCamera( mouse, camera );
-    raycaster.far = Infinity;
+//    raycaster.setFromCamera( mouse, camera );
+//    raycaster.far = Infinity;
+//
+//    // calculate objects intersecting the picking ray
+//    var intersects = raycaster.intersectObjects( [defenseSphere] );
 
-    // calculate objects intersecting the picking ray
-    var intersects = raycaster.intersectObjects( [defenseSphere] );
-
-    if( intersects.length > 0 )
+    if( keyboard.pressed("ctrl") )//intersects.length > 0 )
     {
         movingDefense = true;
         return;
@@ -155,6 +153,9 @@ function onDocumentMouseDown( event )
     planetSphere.geometry.computeVertexNormals();*/
 }
 
+var SHIELD_COST = [ 1, 1, 2 ];
+var SHIELD_LIFE = [ 3, 3, 5 ];
+
 function onDocumentMouseUp( event )
 {
     cameraController.Stop();
@@ -181,10 +182,14 @@ function onDocumentMouseUp( event )
             {
                 var shield = getShield();
                 
-                if(shield !== undefined)
+                // When a SHIELD is created
+                if(shield !== undefined && score - SHIELD_COST[shield.type] >= 0 )
                 {
                     // Game logic
                     shields[index].shieldType = shield.type;
+                    shields[index].life = SHIELD_LIFE[shield.type];
+                    score -= SHIELD_COST[shield.type];
+                    stardustScoreElement.text(score);
 
                     // Rendering
                     changeDefenseAppearance( index, shield.material ); 

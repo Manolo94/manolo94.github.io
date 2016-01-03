@@ -41,8 +41,6 @@ function Asteroid( size, color, velocity ) {
                 sizeRandomness: 1
             };
         
-  scene.add( particleSystem );
-        
   geometry = new THREE.IcosahedronGeometry( size, size );
      
   switch( colorValue ) {
@@ -75,8 +73,6 @@ function Asteroid( size, color, velocity ) {
   this.asteroid = new THREE.Mesh( geometry, material );
   this.asteroid.castShadow = true;
   this.asteroid.position = new THREE.Vector3( 0, 0, 0 ); 
-    
-  scene.add( this.asteroid );
         
   //setters. 
   //Maybe, we could add rotation x, y, and z 
@@ -131,7 +127,13 @@ function Asteroid( size, color, velocity ) {
   
   this.partSystem = particleSystem;
   this.option = options;
-  this.spawnOptions = spawnerOptions;    
+  this.spawnOptions = spawnerOptions;
+    
+  this.addToScene = function()
+  {
+      scene.add( particleSystem );
+      scene.add( this.asteroid );
+  }
     
   this.remove = function()
   {
