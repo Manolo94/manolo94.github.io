@@ -408,7 +408,7 @@
                 raycaster.setFromCamera( mouse, camera );	
 
                 // calculate objects intersecting the picking ray
-                var intersects = raycaster.intersectObjects( scene.children );
+                var intersects = raycaster.intersectObjects( scene.children, true );
 
                 posI = -1; posJ = -1;
 
