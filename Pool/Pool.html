@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 
-<h5>Each cell in the board has some heat. Heat is transfered between adjacent cells (top, right, left, bottom). How fast heat is transfered is controlled by "Base thermal conductivity". There's a number of pellets that move acording to the heat flow inside the cell they are contained. "Mass of each pellet" controls how fast they move relative to the heat flow.</h5>
+<h5>Each cell in the board has some heat (red - highest, blue lowest). Heat is transfered between adjacent cells (top, right, left, bottom). How fast heat is transfered is controlled by "Base thermal conductivity". There's a number of pellets that move acording to the heat flow inside the cell they are contained. "Mass of each pellet" controls how fast they move relative to the heat flow.</h5>
 
 <canvas id="poolCanvas" style="border-style: solid;" width="500" height="500"></canvas>
 
@@ -14,6 +14,8 @@
 	<input id="thermalCondTxt" type="text" value="0.01"></br>
 	Mass of each pellet:
 	<input id="pelletMassTxt" type="text" value="100"></br>
+	Number of heat sources:
+	<input id="numHeatSourcesTxt" type="text" value="1"></br>
 	<input id="runBtn" type="button" value="Run">
 </div>
 

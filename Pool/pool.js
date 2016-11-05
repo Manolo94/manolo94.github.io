@@ -19,13 +19,15 @@ Game.initialize = function()
 	var numPellets = document.getElementById("numPelletsTxt").value;
 	var thermalCond = document.getElementById("thermalCondTxt").value;
 	var pelletMass = document.getElementById("pelletMassTxt").value;
-
+	var numHeatSources = document.getElementById("numHeatSourcesTxt").value;
 
 	PoolBoard.sideCells = sideCells;
 	PoolBoard.cellSize = canvas.width / PoolBoard.sideCells;
 	PoolBoard.baseThermalConductivity = thermalCond;
 	PoolBoard.numPellets = numPellets;
+	PoolBoard.numHeatSources = numHeatSources;
 
+	// Initialize cells
 	PoolBoard.cells = [];
 	for(var x = 0; x < PoolBoard.sideCells; x++)
 	{
@@ -34,10 +36,19 @@ Game.initialize = function()
 			PoolBoard.cells[x][y] = Math.random();
 	}
 
+	// Initialize pellets
 	PoolBoard.PelletList = [];
 	for( var p = 0; p < PoolBoard.numPellets; p++ )
 	{
 		PoolBoard.PelletList[p] = PoolBoard.Pellet(Math.random()*500, Math.random()*500, 2, pelletMass);
+	}
+
+	// Initialize sin heat sources
+	PoolBoard.SinHeatSourceList = [];
+	for( var s = 0; s < PoolBoard.numHeatSources; s++)
+	{
+		PoolBoard.SinHeatSourceList[s] = PoolBoard.SinHeatSource(Math.floor(Math.random()*PoolBoard.sideCells), 
+										Math.floor(Math.random()*PoolBoard.sideCells), Math.random()*30 + 30);
 	}
 }
 
@@ -113,11 +124,21 @@ PoolBoard.Pellet = function(x, y, size, mass)
 	return pellet;
 }
 
+PoolBoard.SinHeatSource = function(x, y, period)
+{
+	var SinHeatSource = {};
+	SinHeatSource.x = x; SinHeatSource.y = y;
+	SinHeatSource.period = period;
+
+	return SinHeatSource;
+}
+
 PoolBoard.update = function() {
 	var cellChanges = [];
 	var cells = PoolBoard.cells;
 	var cellChangesX = [];
 	var cellChangesY = [];
+	if(cells === undefined || cells[0] === undefined) return;
 	for(var x = 0; x < PoolBoard.sideCells; x++)
 	{
 		cellChanges[x] = [];
@@ -167,11 +188,11 @@ PoolBoard.update = function() {
 				cells[x][y] += cellChanges[x][y];
 			}
 
-	for(var x = 0; x < PoolBoard.sideCells; x++)
-		cells[5][5] += Math.sin(Game.frameCount/60)*0.2;
-
-	for(var x = 0; x < PoolBoard.sideCells; x++)
-		cells[8][8] += Math.abs(Math.sin(Game.frameCount))*0.2;
+	for(var s = 0; s < PoolBoard.numHeatSources; s++)
+	{
+		var heatSource = PoolBoard.SinHeatSourceList[s];
+		cells[heatSource.x][heatSource.y] = Math.sin(Game.frameCount/heatSource.period);
+	}
 
 	for(var x = 0; x < PoolBoard.sideCells; x++)
 		for(var y = 0; y < PoolBoard.sideCells; y++)
