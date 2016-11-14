@@ -1,5 +1,3 @@
-console.log("Test test test");
-
 var canvas = document.getElementById('poolCanvas'),
 	context = canvas.getContext('2d');
 
@@ -213,8 +211,64 @@ PoolBoard.update = function() {
 		if(cellY >= PoolBoard.sideCells) cellY = PoolBoard.sideCells -1;
 		if(cellY < 0) cellY = 0;
 
-		pellet.x += cellChangesX[cellX][cellY]*(10000/pellet.mass);
-		pellet.y += cellChangesY[cellX][cellY]*(10000/pellet.mass);
+		var velX = cellChangesX[cellX][cellY]*(10000/pellet.mass);
+		var velY = cellChangesY[cellX][cellY]*(10000/pellet.mass);
+
+		// Check for collisions
+		// TODO: Partition collisions by cell
+		for( var pi = 0; pi < PoolBoard.numPellets; pi++ )
+		{
+			// dont try to collide with itself
+			if(pi == p) continue;
+
+			var pelletP = PoolBoard.PelletList[pi];
+
+			var dist = PoolBoard.getSqrdDistance(pellet.x + velX, pellet.y + velY,
+												pelletP.x, pelletP.y);
+
+			if(dist < (pelletP.size + pellet.size)*(pelletP.size + pellet.size) )
+			{
+
+				// binary search the right multiplier
+				var vML = 0.0; // vel multiplier low
+				var vMH = 1.0; // vel multiplier high
+
+				while(Math.abs(vML - vMH) > 0.0001)
+				{
+					var midVelX = (vMH+vML)/2*velX;
+					var midVelY = (vMH+vML)/2*velY;
+
+					var middleDist = PoolBoard.getSqrdDistance(pellet.x + midVelX, 
+												pellet.y + midVelY,
+												pelletP.x, pelletP.y);
+
+					// collision, go down
+					if(middleDist < (pelletP.size + pellet.size)*(pelletP.size + pellet.size) )
+					{
+						vMH = (vMH+vML)/2;						
+					}
+					else
+					{
+						vML = (vMH+vML)/2;
+					}
+				}
+
+				velX = velX*vML;
+				velY = velY*vML;
+			}
+		}
+
+		pellet.x += velX;
+		pellet.y += velY;
+
+		if(pellet.x > canvas.width)
+			pellet.x = canvas.width;
+		if(pellet.x < 0)
+			pellet.x = 0;
+		if(pellet.y > canvas.height)
+			pellet.y = canvas.height;
+		if(pellet.y < 0)
+			pellet.y = 0;
 	}
 }
 
@@ -225,7 +279,14 @@ PoolBoard.getTemperatureChange = function(sourceTemp, targetTemp)
 	return (targetTemp - sourceTemp)*PoolBoard.baseThermalConductivity;
 }
 
-// From 0 to 255
+PoolBoard.getSqrdDistance = function(pellet1X, pellet1Y, pellet2X, pellet2Y)
+{
+	var distX = pellet1X - pellet2X;
+	var distY = pellet1Y - pellet2Y;
+	return distX*distX + distY*distY;
+}
+
+// From 0 to 255 {r g b a}
 Game.setContextToColor = function(tempColor)
 {
 	context.fillStyle = "rgba("+tempColor.r+","+tempColor.g+","
