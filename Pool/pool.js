@@ -38,7 +38,7 @@ Game.initialize = function()
 	PoolBoard.PelletList = [];
 	for( var p = 0; p < PoolBoard.numPellets; p++ )
 	{
-		PoolBoard.PelletList[p] = PoolBoard.Pellet(Math.random()*500, Math.random()*500, 2, pelletMass);
+		PoolBoard.PelletList[p] = PoolBoard.Pellet(Math.random()*500, Math.random()*500, 2, pelletMass, (Math.random()*20-10)*0.01);
 	}
 
 	// Initialize sin heat sources
@@ -111,11 +111,12 @@ PoolBoard.draw = function() {
 
 var count = 0;
 
-PoolBoard.Pellet = function(x, y, size, mass)
+PoolBoard.Pellet = function(x, y, size, mass, heatContribution)
 {
 	var pellet = {};
 	pellet.x = x;
 	pellet.y = y;
+    pellet.heatContribution = heatContribution;
 	pellet.size = size;
 	pellet.mass = mass;
 
@@ -134,85 +135,78 @@ PoolBoard.SinHeatSource = function(x, y, period)
 PoolBoard.update = function() {
 	var cellChanges = [];
 	var cells = PoolBoard.cells;
-	var cellChangesX = [];
-	var cellChangesY = [];
+	var cellFlowX = [];
+	var cellFlowY = [];
+    
+    // Do nothing if not initialized
 	if(cells === undefined || cells[0] === undefined) return;
+    
+    // Calculate all cells temperature change
 	for(var x = 0; x < PoolBoard.sideCells; x++)
 	{
 		cellChanges[x] = [];
-		cellChangesX[x] = [];
-		cellChangesY[x] = [];
+		cellFlowX[x] = [];
+		cellFlowY[x] = [];
 		for(var y = 0; y < PoolBoard.sideCells; y++)
 		{
 			cellChanges[x][y] = 0.0;
-			cellChangesX[x][y] = 0.0;
-			cellChangesY[x][y] = 0.0;
-			if(x+1 < PoolBoard.sideCells)
-			{
-				var change = PoolBoard.getTemperatureChange(cells[x][y], cells[x+1][y]);
-				cellChanges[x][y] += change;
-				// positive change, temperature coming from right --> pushes left
-				cellChangesX[x][y] += -change;
-			}
-			if(y-1 >= 0)
-			{
-				var change = PoolBoard.getTemperatureChange(cells[x][y], cells[x][y-1]);
-				cellChanges[x][y] += change;
-				// positive change, temperature coming from top --> pushes down
-				cellChangesY[x][y] += change;
-			}
-			if(x-1 >= 0)
-			{
-				var change = PoolBoard.getTemperatureChange(cells[x][y], cells[x-1][y]);
-				cellChanges[x][y] += change;
-				// positive change, temperature coming from left --> pushes right
-				cellChangesX[x][y] += change;
-			}
-			if(y+1 < PoolBoard.sideCells)
-			{
-				var change = PoolBoard.getTemperatureChange(cells[x][y], cells[x][y+1]);
-				cellChanges[x][y] += change;
-				// positive change, temperature coming from bottom --> pushes up
-				cellChangesY[x][y] += -change;
-			}
+			cellFlowX[x][y] = 0.0;
+			cellFlowY[x][y] = 0.0;
+            
+            for(var dir = 0; dir < PoolBoard.DIRECTIONS.length; dir++)
+            {
+                var direction = PoolBoard.DIRECTIONS[dir];
+                
+                var nextCell = PoolBoard.getNextCell(x,y,direction);
+                
+                var change = PoolBoard.getTemperatureChange(cells[x][y], cells[nextCell.x][nextCell.y]);
+                cellChanges[x][y] += change;
+                // positive change means heat is coming from there, so cellFlow is in the opposite direction
+                cellFlowX[x][y] += -change*direction.x; // direction.x will be 0 when y != 0
+                cellFlowY[x][y] += -change*direction.y; // direction.x will be 0 when x != 0
+                
+            }
 		}
 	}
 
+    // Apply temperature change
 	for(var x = 0; x < PoolBoard.sideCells; x++)
 		for(var y = 0; y < PoolBoard.sideCells; y++)
 			if(Math.abs(cellChanges[x][y]) > 0.000001)
 			{
 				count++;
 				cells[x][y] += cellChanges[x][y];
+                
+                // Cap temperature at 1.0 and 0.0
+                if(cells[x][y] > 1.0) cells[x][y] = 1.0;
+			    if(cells[x][y] < 0.0) cells[x][y] = 0.0;
 			}
 
+    // Simulate all heat sources changing through time
 	for(var s = 0; s < PoolBoard.numHeatSources; s++)
 	{
 		var heatSource = PoolBoard.SinHeatSourceList[s];
 		cells[heatSource.x][heatSource.y] = Math.sin(Game.frameCount/heatSource.period);
 	}
 
-	for(var x = 0; x < PoolBoard.sideCells; x++)
-		for(var y = 0; y < PoolBoard.sideCells; y++)
-		{
-			if(cells[x][y] > 1.0) cells[x][y] = 1.0;
-			if(cells[x][y] < 0.0) cells[x][y] = 0.0;
-		}
-
+    // Update the pellets
 	for( var p = 0; p < PoolBoard.numPellets; p++ )
 	{
 		var pellet = PoolBoard.PelletList[p];
-		// Pellet update
+		
+        // Get the cell for the current pellet
 		var cellX = Math.floor(pellet.x / PoolBoard.cellSize);
 		var cellY = Math.floor(pellet.y / PoolBoard.cellSize);
 
+        // Just in case a pellet is outside the board
 		if(cellX >= PoolBoard.sideCells) cellX = PoolBoard.sideCells - 1;
 		if(cellX < 0) cellX = 0;
 		if(cellY >= PoolBoard.sideCells) cellY = PoolBoard.sideCells -1;
 		if(cellY < 0) cellY = 0;
 
-		var velX = cellChangesX[cellX][cellY]*(10000/pellet.mass);
-		var velY = cellChangesY[cellX][cellY]*(10000/pellet.mass);
+        // Calculate the velocity of the pellet based on the current cells flow
+		var velX = cellFlowX[cellX][cellY]*(10000/pellet.mass);
+		var velY = cellFlowY[cellX][cellY]*(10000/pellet.mass);
 
 		// Check for collisions
 		// TODO: Partition collisions by cell
@@ -258,17 +252,22 @@ PoolBoard.update = function() {
 			}
 		}
 
+        // Update position
 		pellet.x += velX;
 		pellet.y += velY;
 
+        // Wrap around
 		if(pellet.x > canvas.width)
-			pellet.x = canvas.width;
-		if(pellet.x < 0)
 			pellet.x = 0;
+		if(pellet.x < 0)
+			pellet.x = canvas.width - 1;
 		if(pellet.y > canvas.height)
-			pellet.y = canvas.height;
-		if(pellet.y < 0)
 			pellet.y = 0;
+		if(pellet.y < 0)
+			pellet.y = canvas.height - 1;
+        
+        // Update heat contribution to the current cell
+        cells[cellX][cellY] += pellet.heatContribution;
 	}
 }
 
@@ -303,6 +302,26 @@ PoolBoard.getTemperatureColor = function(temperature)
 	color.a = 1.0;
 
 	return color;
+}
+
+// Directions (0 - up, 1 - left, 2 - down, 3 - right)
+PoolBoard.DIRECTIONS = [{x:0,y:-1},{x:-1,y:0},{x:0,y:1},{x:1,y:0}];
+// Get the next cell
+PoolBoard.getNextCell = function(currentCellX, currentCellY, direction)
+{
+    var nextCell = {x:currentCellX+direction.x, y:currentCellY+direction.y};
+    
+    // Wrap around
+    if(nextCell.x >= PoolBoard.sideCells)
+        nextCell.x = 0;
+    if(nextCell.x < 0)
+        nextCell.x = PoolBoard.sideCells - 1;
+    if(nextCell.y >= PoolBoard.sideCells)
+        nextCell.y = 0;
+    if(nextCell.y < 0)
+        nextCell.y = PoolBoard.sideCells - 1;
+    
+    return nextCell;
 }
 
 Game.run();
