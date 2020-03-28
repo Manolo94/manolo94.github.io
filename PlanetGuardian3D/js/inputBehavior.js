@@ -95,6 +95,47 @@ function getShield(){
     }
 }
 
+function changeCursorImage(shieldType)
+{
+    var image = { 'blue': 'cursor_ice.png', 'red': 'cursor_fire.png', 'grey': 'cursor_metal.png' };
+
+    if (shieldType === undefined)
+    {
+        document.getElementById('instructions').style.cursor = "default";
+        document.getElementById('scoreRow').style.cursor = "default";
+    }
+    else
+    {
+        document.getElementById('instructions').style.cursor = "url('images/" + image[shieldType] + "'), pointer";
+        document.getElementById('scoreRow').style.cursor = "url('images/" + image[shieldType] + "'), pointer";
+    }
+}
+
+function onEnterKey( event )
+{
+    var keyToShield = { 'Digit1': 'blue', 'Digit2': 'red', 'Digit3': 'grey' };
+
+    currentShieldSelected = keyToShield[event.code];
+
+    // Only allowed to use blue in the easy level
+    if (difficultySelected === "easy" && currentShieldSelected !== 'blue')
+    {
+        currentShieldSelected = undefined;
+        document.getElementById('instructions').style.cursor = "default";
+        document.getElementById('scoreRow').style.cursor = "default";
+    }
+    // Only allowed to use blue and red in the medium level
+    if (difficultySelected === "medium" &&
+        (currentShieldSelected !== 'blue' && currentShieldSelected !== 'red'))
+    {
+        currentShieldSelected = undefined;
+        document.getElementById('instructions').style.cursor = "default";
+        document.getElementById('scoreRow').style.cursor = "default";
+    }
+
+    if (currentShieldSelected !== undefined) changeCursorImage(currentShieldSelected);
+}
+
 var mouseDown = false;
 var movingDefense = false;
 var mouseDownX = -1;

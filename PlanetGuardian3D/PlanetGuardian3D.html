@@ -17,6 +17,13 @@
                 color: rgb(186,85,211);
             }
             
+            .unselectable {
+                user-select: none;
+                -moz-user-select: none;
+                -khtml-user-select: none;
+                -webkit-user-select: none;
+                -o-user-select: none;
+            }
                 
             #stardustValue{
             }
@@ -51,8 +58,6 @@
 
 				color: #ffffff;
 				text-align: center;
-
-				cursor: pointer;
 			}
     </style>    
     <script src="js/jquery_v1.9.0.js"></script>
@@ -91,20 +96,23 @@
         <div class="row" style="z-index:1000; position: absolute; margin-left:50px; margin-top:50px;" >
             <div class="col-md-8">
               <div class="col-md-4" >        
-                  <img id="blue" class="shield" style="height:50px;" src="images/blue-shield.png" alt="blue shield">   
+                  <img id="blue" class="shield" style="height:50px;" src="images/blue-shield.png" alt="blue shield">
+                  <div class="p-1 mb-2 bg-warning">1</div>
               </div>
               <div class="col-md-4"  >
                   <img id="red" class="shield" style="height:50px;" src="images/red-shield.png" alt="red shield">
+                  <div class="p-1 mb-2 bg-warning">2</div>
               </div>
                 <div class="col-md-4"  >
                   <img id="titanium" class="shield" style="height:50px;" src="images/titanium-shield.png" alt="red shield">   
+                  <div class="p-1 mb-2 bg-warning">3</div>
               </div>
             </div>
             <div class="col-md-4"><button id="menuButton" style="margin-top:12%;" type="button" class="btn btn-primary">Menu</button></div>
         </div>
         <div class="row" style="z-index:1000; position: absolute; margin-left:50px; margin-top:150px;" >
-            <div class="score row" style="width:1000%">
-                <div class="col-md-6">Stardust: <span id="scoreValue" class="score">0</span></div>
+            <div id="scoreRow" class="score row" style="width:1000%">
+                <div class="col-md-6 unselectable">Stardust: <span id="scoreValue" class="score">0</span></div>
             </div>       
         </div>
         
@@ -564,7 +572,8 @@
                 
                 document.addEventListener( 'mousemove', onDocumentMouseMove, false );
                 document.addEventListener( 'mousedown', onDocumentMouseDown, false );
-                document.addEventListener( 'mouseup'  , onDocumentMouseUp,   false );
+                document.addEventListener( 'mouseup', onDocumentMouseUp, false );
+                document.addEventListener( 'keydown', onEnterKey, false );
                 
                 raycaster = new THREE.Raycaster();
                 
@@ -649,7 +658,7 @@
                 var alpha = Math.random()*Math.PI*2;
                 var beta = Math.random()*Math.PI*2;
                 var sphereRadius = Math.random()*100 + 200;
-                var speed = Math.random()*1.0 + 0.8;
+                var speed = Math.random()*20.0 + 16.0;
 
                 var circleRadius = Math.cos(beta)*sphereRadius;
 
@@ -657,7 +666,7 @@
                 asteroid.positionY( Math.sin(alpha)*circleRadius );
                 asteroid.positionZ( Math.sin(beta)*sphereRadius );
 
-                var velTowardPlanet = asteroid.asteroid.position.clone().negate().normalize().multiplyScalar(0.8);
+                var velTowardPlanet = asteroid.asteroid.position.clone().negate().normalize().multiplyScalar(speed);
                 //console.log(velTowardPlanet);
                 asteroid.option.velocity = velTowardPlanet;
 
@@ -671,6 +680,7 @@
             var delta = 0;
             var gameOver = false;
             var RANDOM_MULTIPLICATOR = 10;
+            var nextTime = 0.0;
             function render()
             {
                 
@@ -685,33 +695,38 @@
                 // Difficulty setting
                 if( difficultySelected === "easy" )
                 {
-                    randomIndex = 400;        
+                    randomIndex = 400; // in milliseconds        
                 }
                                 // Difficulty setting
                 if( difficultySelected === "medium" )
                 {
-                    randomIndex = 300;        
+                    randomIndex = 300; // in milliseconds
                 }
                                 // Difficulty setting
                 if( difficultySelected === "hard" )
                 {
-                    randomIndex = 200;        
+                    randomIndex = 200; // in milliseconds
                 }
                                 // Difficulty setting
                 if( difficultySelected === "survival" )
                 {
-                    randomIndex = 100;        
+                    randomIndex = 100; // in milliseconds
                 }
                 
                 planetSphere.rotation.y += delta*Math.PI/30;
                 lavaSphere.rotation.y += delta*Math.PI/30;
                 
-                
-                var r = Math.floor(Math.random()*randomIndex*delta*RANDOM_MULTIPLICATOR);                
-                if( r == 0 && !gameOver ) // If the game is over, stop putting asteroids
+                if(nextTime > randomIndex / 1000)
                 {
-                    putAsteroidFromPool();
+                    nextTime = 0;
+                    var r = Math.floor(Math.random()*RANDOM_MULTIPLICATOR);
+                    //console.log("Random: " + r);
+                    if( r == 0 && !gameOver ) // If the game is over, stop putting asteroids
+                    {
+                        putAsteroidFromPool();
+                    }
                 }
+                nextTime += delta;
                 
                 //if( i >= planetSphere.geometry.vertices.length )
                     //i = 0;
@@ -756,7 +771,7 @@
                       for(var i = 0; i < asteroids.length; i++)
                       {
                           asteroids[i].partSystem.update(tick);
-                          asteroids[i].update();
+                          asteroids[i].update(delta);
                           collideAsteroid(asteroids[i]);
                           //asteroids[i].positionX(Math.sin(tick * 1) * 40);
                       }

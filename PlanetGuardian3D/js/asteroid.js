@@ -118,11 +118,11 @@ function Asteroid( size, color, velocity ) {
       options.position.multiplyScalar( value );
       this.asteroid.position.multiplyScalar( value );
   }
-  this.update = function()
+  this.update = function(deltaTime)
   {
-      this.positionX( this.asteroid.position.x + options.velocity.x );
-      this.positionY( this.asteroid.position.y + options.velocity.y );
-      this.positionZ( this.asteroid.position.z + options.velocity.z );
+      this.positionX( this.asteroid.position.x + options.velocity.x*deltaTime );
+      this.positionY( this.asteroid.position.y + options.velocity.y*deltaTime );
+      this.positionZ( this.asteroid.position.z + options.velocity.z*deltaTime );
   }
   
   this.partSystem = particleSystem;
