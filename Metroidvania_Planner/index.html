@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.1/p5.js"></script>
+    <!--<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.1/addons/p5.sound.min.js"></script>-->
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <meta charset="utf-8" />
+
+  </head>
+  <body>
+    <main>
+      <div>
+        <button onclick="addLevel()" id="AddLevelBtn">Add Level</button>
+        <button onclick="clearWorldFirstTry()" id="ClearWorldBtn">Clear World</button>
+        <span id="ClearWorldConfirmSpan" hidden>
+          Are you sure?
+          <button onclick="clearWorldConfirm()">Confirm</button>
+          <button onclick="clearWorldCancel()">Cancel</button>
+        </span>
+        <button onclick="saveWorld()" id="SaveWorldBtn">Save World</button>
+        <button onclick="calculatePath()" id="CalculatePathBtn">Calculate Path</button>
+        <span id="SavedMessage" hidden>
+          World Saved!
+        </span>
+      </div>
+      <div>
+        <input type="radio" id="RegularModeRadioBtn" name="editorMode" checked />
+        <label for="RegularModeRadioBtn">Move and Size Levels</label>
+        <input type="radio" id="AddDoorsRadioBtn" name="editorMode"/>
+        <label for="AddDoorsRadioBtn">Add Doors</label>
+        <input type="radio" id="AddWallsRadioBtn" name="editorMode"/>
+        <label for="AddWallsRadioBtn">Add Walls</label>
+        <input type="radio" id="AddObjectivesRadioBtn" name="editorMode"/>
+        <label for="AddObjectivesRadioBtn">Add Objectives</label>
+        <input type="radio" id="RemoveObjectivesRadioBtn" name="editorMode"/>
+        <label for="RemoveObjectivesRadioBtn">Remove Objectives</label>
+      </div>
+      <div>
+        Note: Objectives can only be placed inside levels
+      </div>
+      <div>
+        <input type="checkbox" id="SetStartPositionCheck"/>
+        <label for="SetStartPositionCheck">Set Start Position</label>
+        <input type="checkbox" id="SetEndPositionCheck"/>
+        <label for="SetEndPositionCheck">Set End Position</label>
+      </div>
+    </main>
+    <script src="grid.js"></script>
+    <script src="level.js"></script>
+    <script src="grid_solver.js"></script>
+    <script src="sketch.js"></script>
+  </body>
+</html>
