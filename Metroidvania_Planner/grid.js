@@ -12,6 +12,7 @@ class GridState
     // **********************
   
     this.selectedLevel = null;
+    this.selectedObjective = null;
     this.sizingBorders = createVector(0,0);
     this.hoveringOverLevel = null;
     this.nowTranslatingALevel = false;
@@ -23,6 +24,8 @@ class GridState
     this.nowRemovingObjectives = false;
     this.nowSettingStartPosition = false;
     this.nowSettingEndPosition = false;
+    this.nowAddingObstaclesToALevel = false;
+    this.nowRemovingObstaclesFromALevel = false;
     
     this.path = [];
   }
@@ -44,11 +47,20 @@ class GridState
     }
   }
   
-  getAllObjectives()
+  getAllObjectivesPositions()
   {
     let allObjectives = []
     this.levels.forEach((level) =>{
       allObjectives.push(...level.getObjectivesInGlobalGridSpace())
+    })
+    return allObjectives
+  }
+
+  getAllObjectives()
+  {
+    let allObjectives = []
+    this.levels.forEach((level) =>{
+      allObjectives.push(...level.objectives)
     })
     return allObjectives
   }
@@ -65,6 +77,8 @@ class GridState
     {
       this.levels.push(Level.loadLevelSaveObject(level))
     })
+    
+    Objective.updateAllObjectives();
     
     this.startPosition = createVector(saveObject.startPosition.x, saveObject.startPosition.y)
     this.endPosition = createVector(saveObject.endPosition.x, saveObject.endPosition.y)
@@ -106,7 +120,7 @@ class GridState
   // Return whether a player is able to move in the given direction from the given position
   //  position and direction are both vectors in grid coordinates
   //  direction can only be one of the following: (-1, 0), (1, 0), (0, -1) or (0, 1)
-  canPassThrough(position, direction)
+  canPassThrough(position, direction, currentObjectivesFound)
   {
     // Find what level the player is in
     let currentLevel = grid.levels.find((level) => level.isPositionInLevel(position));
@@ -122,16 +136,20 @@ class GridState
     if(destinationLevel === undefined) return false; // Player can't walk in a space where there are no levels
     if(currentLevel == destinationLevel)
     {
-      return true; // TODO: Here we should take care of obstacles within the same level
+      let blocked = destinationLevel.checkIfObstacleBlocks(destPosition, currentObjectivesFound);
+      return blocked == false;
     }
     if(currentLevel != destinationLevel)
-    {      
+    {
       // Check the current level walls
       if(currentLevel.checkIfWallBlocksOutboundMovement(position, direction))
         return false;
       
       // Check the destination level walls
       if(destinationLevel.checkIfWallBlocksInboundMovement(position, direction))
+        return false;
+
+      if(destinationLevel.checkIfObstacleBlocks(destPosition, currentObjectivesFound))
         return false;
       
       return true
@@ -198,8 +216,15 @@ class GridState
   {
     for(var i = 0; i < this.path.length - 1; i++)
     {
+      // Move the "middle" around a bit, to be able to distinguish crossing paths
+      let absoluteDistFromCenter = this.gridSize / 4;
+      let offset = (i / (this.path.length) * absoluteDistFromCenter * 2) - absoluteDistFromCenter;
+
       let startPosInScreen = this.getScreenPosFromGridPos(this.path[i]);
       let endPosInScreen = this.getScreenPosFromGridPos(this.path[i+1]);
+
+      if(i > 0) startPosInScreen = p5.Vector.add(startPosInScreen, createVector(offset, offset));
+      if(i < this.path.length - 2) endPosInScreen = p5.Vector.add(endPosInScreen, createVector(offset, offset));
       
       // Set the path color to match how far along the way we are
       let pathColor = lerpColor(color("black"), color("white"), i / this.path.length);
@@ -208,7 +233,7 @@ class GridState
       stroke(pathColor)
       line(startPosInScreen.x + this.gridSize/2, startPosInScreen.y + this.gridSize/2,
            endPosInScreen.x + this.gridSize/2, endPosInScreen.y + this.gridSize/2)
-      
+
       let middlePosInScreen = createVector((startPosInScreen.x + endPosInScreen.x + this.gridSize)/2,
                                            (startPosInScreen.y + endPosInScreen.y + this.gridSize)/2)
       

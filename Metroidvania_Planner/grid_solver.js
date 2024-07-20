@@ -29,7 +29,7 @@ class GridSolver
     let setPositionAsVisited = (move) => visitedPositions.add(move.toStr())
     
     let initialObjectiveState = []
-    let allObjectives = grid.getAllObjectives()
+    let allObjectives = grid.getAllObjectivesPositions()
     allObjectives.forEach((obj) => initialObjectiveState.push(false))
     let whatObjectiveReached = (pos) => allObjectives.findIndex((obj) => obj.x == pos.x && obj.y == pos.y)
     
@@ -61,25 +61,25 @@ class GridSolver
         
       // Generate new positions if we can go there
       // Go left
-      if(grid.canPassThrough(posInTheMiddleOfCell, createVector(-1, 0)))
+      if(grid.canPassThrough(posInTheMiddleOfCell, createVector(-1, 0), newObjectiveState))
       {
         let newPosition = p5.Vector.add(currentMove.currentPosition, createVector(-1, 0))
         queue.push(new Move(currentMove, newPosition, newObjectiveState)) // enqueue
       }
       // Go right
-      if(grid.canPassThrough(posInTheMiddleOfCell, createVector(1, 0)))
+      if(grid.canPassThrough(posInTheMiddleOfCell, createVector(1, 0), newObjectiveState))
       {
         let newPosition = p5.Vector.add(currentMove.currentPosition, createVector(1, 0))
         queue.push(new Move(currentMove, newPosition, newObjectiveState)) // enqueue
       }
       // Go up
-      if(grid.canPassThrough(posInTheMiddleOfCell, createVector(0, -1)))
+      if(grid.canPassThrough(posInTheMiddleOfCell, createVector(0, -1), newObjectiveState))
       {
         let newPosition = p5.Vector.add(currentMove.currentPosition, createVector(0, -1))
         queue.push(new Move(currentMove, newPosition, newObjectiveState)) // enqueue
       }
       // Go down
-      if(grid.canPassThrough(posInTheMiddleOfCell, createVector(0, 1)))
+      if(grid.canPassThrough(posInTheMiddleOfCell, createVector(0, 1), newObjectiveState))
       {
         let newPosition = p5.Vector.add(currentMove.currentPosition, createVector(0, 1))
         queue.push(new Move(currentMove, newPosition, newObjectiveState)) // enqueue

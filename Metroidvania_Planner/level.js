@@ -12,7 +12,6 @@ class Objective
     this.index = Objective.allObjectives.length;
     this.parentLevelPos = parentLevelPos;
     this.parentLevelSize = parentLevelSize;
-    Objective.allObjectives.push(this)
   }
   
   drawObjective()
@@ -32,16 +31,45 @@ class Objective
     textAlign(CENTER, CENTER)
     text(this.index+'', objPosInScreen.x + grid.gridSize/2, objPosInScreen.y + grid.gridSize/2);
   }
-  
-  static removeObjectiveByIdx(idx)
+
+  static updateAllObjectives()
   {
-    if(idx != -1)
-    {
-      Objective.allObjectives.splice(idx, 1);
-    }
+    Objective.allObjectives = grid.getAllObjectives();
+
     // Reset all indexes
     for(let i = 0; i < Objective.allObjectives.length; i++)
       Objective.allObjectives[i].index = i;
+  }
+}
+
+class Obstacle
+{
+  constructor(pos, unlockedByObjectiveIdx, parentLevelPos, parentLevelSize)
+  {
+    this.pos = pos;
+    this.parentLevelPos = parentLevelPos;
+    this.parentLevelSize = parentLevelSize;
+    this.unlockedByObjectiveIdx = unlockedByObjectiveIdx;
+  }
+
+  drawObstacle()
+  {    
+    if(this.pos.x < 0 || this.pos.y < 0 || 
+       this.pos.x >= this.parentLevelSize.x || 
+       this.pos.y >= this.parentLevelSize.y) 
+      return;
+
+    // Set the obstacle by reference instead of by index, will only happen after loading
+    if(this.parentObjective === undefined)
+      this.parentObjective = Objective.allObjectives[this.unlockedByObjectiveIdx];
+
+    // Fix the index if it's wrong, in case the original objective changed its index
+    this.unlockedByObjectiveIdx = this.parentObjective.index;
+      
+    let obsPosInScreen = grid.getScreenPosFromGridPos(p5.Vector.add(this.pos, this.parentLevelPos));
+    fill(Objective.allObjectives[this.unlockedByObjectiveIdx].color);
+    noStroke();
+    rect(obsPosInScreen.x, obsPosInScreen.y, grid.gridSize, grid.gridSize);
   }
 }
 
@@ -62,6 +90,7 @@ class Level {
     this.generateWallsToDraw();
     
     this.objectives = []; // list of objectives
+    this.obstacles = []; // list of obstacles
   }
   
   // TODO: Put objectives in the grid state object, then reference them here
@@ -80,7 +109,8 @@ class Level {
       size: this.size,
       colorStr: this.color.toString(),
       wallBreaks: this.wallBreaks,
-      objectives: this.objectives
+      objectives: this.objectives,
+      obstacles: this.obstacles
     }
   }
   
@@ -102,6 +132,19 @@ class Level {
                                                newLevel.pos, newLevel.size))
       }
     })
+
+    newLevel.obstacles = []
+    if(saveObject.obstacles != undefined)
+    {
+      saveObject.obstacles.forEach((obs) =>
+      {
+        if(obs.pos !== undefined)
+        {
+          newLevel.obstacles.push(new Obstacle(createVector(obs.pos.x, obs.pos.y), obs.unlockedByObjectiveIdx, 
+                                                  newLevel.pos, newLevel.size))
+        }
+      })
+    }
     
     newLevel.generateWallsToDraw()
     
@@ -231,6 +274,7 @@ class Level {
                                                           obj.pos.y == newObjective.y);
     
     if(objectiveIdx == -1) this.objectives.push(newObjective);
+    Objective.updateAllObjectives();
     //console.log("Added new objective " + this.objectives);
   }
   
@@ -244,7 +288,44 @@ class Level {
     if(objectiveIdx != -1)
     {
       let removedObj = this.objectives.splice(objectiveIdx, 1)[0];
-      Objective.removeObjectiveByIdx(removedObj.index);
+      Objective.updateAllObjectives();
+    }
+    //console.log("Removed " + this.objectives + " " + objectiveIdx);
+  }
+
+  selectObjective(gridPosition)
+  {
+    let objectiveToSelect = createVector(floor(gridPosition.x - this.pos.x),floor(gridPosition.y - this.pos.y));
+    
+    let objective = this.objectives.find((obj) => obj.pos.x == objectiveToSelect.x && 
+                                                  obj.pos.y == objectiveToSelect.y);
+    
+    //console.log("Selected " + objective.index);
+    return objective;
+  }
+
+  addObstacle(gridPosition, unlockedByObjective)
+  {
+    let newObstaclePos = createVector(floor(gridPosition.x - this.pos.x),floor(gridPosition.y - this.pos.y));
+    
+    let newObstacle = new Obstacle(newObstaclePos, unlockedByObjective.index, this.pos, this.size);
+    let obstacleIdx = this.obstacles.findIndex((obj) => obj.pos.x == newObstacle.x && 
+                                                        obj.pos.y == newObstacle.y);
+    
+    if(obstacleIdx == -1) this.obstacles.push(newObstacle);
+    //console.log("Added new objective " + this.objectives);
+  }
+  
+  removeObstacle(gridPosition)
+  {
+    let obstacleToRemovePos = createVector(floor(gridPosition.x - this.pos.x),floor(gridPosition.y - this.pos.y));
+
+    let obstacleIdx = this.obstacles.findIndex((obj) => obj.pos.x == obstacleToRemovePos.x && 
+                                                        obj.pos.y == obstacleToRemovePos.y);
+    
+    if(obstacleIdx != -1)
+    {
+      this.obstacles.splice(obstacleIdx, 1)[0];
     }
     //console.log("Removed " + this.objectives + " " + objectiveIdx);
   }
@@ -419,6 +500,9 @@ class Level {
     rect(screenLevelPosUpperLeft.x, screenLevelPosUpperLeft.y, 
          screenLevelSize.x, screenLevelSize.y);
     
+    // Draw obstacles
+    this.drawObstacles();
+    
     // Draw walls
     this.drawLevelWalls();
     
@@ -497,6 +581,23 @@ class Level {
     let insidePosition = p5.Vector.add(gridPosition, direction)
     let oppositeDirection = p5.Vector.mult(direction, -1)
     return this.checkIfWallBlocksOutboundMovement(insidePosition, oppositeDirection)
+  }
+
+  // Returns true if there's an obstacle blocking player movement 
+  //  that the player can't unlock with the current objectives found
+  checkIfObstacleBlocks(position, currentObjectivesFound)
+  {
+    let obstacleToTraverse = createVector(floor(position.x - this.pos.x),floor(position.y - this.pos.y));
+    
+    let obstacleIdx = this.obstacles.findIndex((obs) => obs.pos.x == obstacleToTraverse.x && 
+                                                        obs.pos.y == obstacleToTraverse.y);
+    if(obstacleIdx >= 0)
+    {
+      let unlockedByObjectiveIdx = this.obstacles[obstacleIdx].unlockedByObjectiveIdx;
+      return currentObjectivesFound[unlockedByObjectiveIdx] == false;
+    }
+    
+    return false;
   }
   
   generateWallsToDraw()
@@ -614,6 +715,14 @@ class Level {
     this.objectives.forEach((obj) =>
     {
       obj.drawObjective();
+    });
+  }
+
+  drawObstacles()
+  {
+    this.obstacles.forEach((obs) =>
+    {
+      obs.drawObstacle();
     });
   }
 }

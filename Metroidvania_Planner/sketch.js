@@ -19,6 +19,8 @@ function update()
   grid.nowAddingWalls = document.querySelector("#AddWallsRadioBtn").checked;
   grid.nowAddingObjectives = document.querySelector("#AddObjectivesRadioBtn").checked;
   grid.nowRemovingObjectives = document.querySelector("#RemoveObjectivesRadioBtn").checked;
+  grid.nowAddingObstaclesToALevel = document.querySelector("#AddObstacleRadioBtn").checked;
+  grid.nowRemovingObstaclesFromALevel = document.querySelector("#RemoveObstacleRadioBtn").checked;
   
   // GLOBAL CONTROLS
   grid.nowSettingStartPosition = document.querySelector("#SetStartPositionCheck").checked;
@@ -173,6 +175,32 @@ function mousePressed()
         
         if(grid.nowAddingObjectives) level.addObjective(mousePosInGrid);
         else if(grid.nowRemovingObjectives) level.removeObjective(mousePosInGrid);
+      }
+      else if(grid.nowAddingObstaclesToALevel || grid.nowRemovingObstaclesFromALevel)
+      {
+        // Check where to put the objective or select an objective
+        let mousePosInGrid = grid.screenPositionToGridPosition(createVector(mouseX, mouseY));
+
+        let clickedObjective = level.selectObjective(mousePosInGrid);
+
+        if(clickedObjective != null)
+        {
+          grid.selectedObjective = clickedObjective;
+          document.querySelector("#SelectedObjectiveTxt").value = grid.selectedObjective.index;
+        }
+        else if(grid.selectedObjective != null)
+        {
+          // Add the obstacle unlocked by the selected level
+          if(grid.nowAddingObstaclesToALevel && grid.selectedObjective != null)
+          {
+            level.addObstacle(mousePosInGrid, grid.selectedObjective);
+          }
+        }
+        // Remove the obstacle
+        if(grid.nowRemovingObstaclesFromALevel)
+        {
+          level.removeObstacle(mousePosInGrid);
+        }
       }
       else if(grid.inRegularMode)
       {

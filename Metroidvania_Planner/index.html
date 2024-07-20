@@ -39,6 +39,17 @@
         Note: Objectives can only be placed inside levels
       </div>
       <div>
+        <input type="radio" id="AddObstacleRadioBtn" name="editorMode" />
+        <label for="AddObstacleRadioBtn">Add Obstacles</label>
+        <label for="SelectedObjectiveTxt">unlocked with Objective: </label>
+        <input type="text" id="SelectedObjectiveTxt" name="selectedObjective" maxlength="2" size="3" readonly/>
+        <input type="radio" id="RemoveObstacleRadioBtn" name="editorMode" />
+        <label for="RemoveObstacleRadioBtn">Remove Obstacles</label>
+      </div>
+      <div>
+        Note: Click which objective unlocks the obstacles before adding the obstacles
+      </div>
+      <div>
         <input type="checkbox" id="SetStartPositionCheck"/>
         <label for="SetStartPositionCheck">Set Start Position</label>
         <input type="checkbox" id="SetEndPositionCheck"/>
