@@ -1,379 +1,459 @@
 //*************************************************//
-//						GAME					   //
-//*************************************************//
-var Game = {};
-Game.frame = 0;
-Game.frameCount = 0;
-Game.fps = 60;
-Game.realFps = -1;
-
-Game._intervalId = setInterval(Game.run, 1000 / Game.fps);
-
-Game.initialize = function()
-{
-	var sideCells = document.getElementById("sideCellsTxt").value;
-	var numPellets = document.getElementById("numPelletsTxt").value;
-	var thermalCond = document.getElementById("thermalCondTxt").value;
-	var pelletMass = document.getElementById("pelletMassTxt").value;
-	var numHeatSources = document.getElementById("numHeatSourcesTxt").value;
-	
-	// initialize main PoolBoard
-	board = new PoolBoard(canvas.width,
-		                  sideCells,
-		                  thermalCond,
-		                  numPellets,
-		                  pelletMass,
-						  numHeatSources);
-}
-
-Game.fpsCounter = function()
-{
-	Game.realFps = Game.frame;
-	Game.frame = 0;
-};
-
-Game.run = function()
-{
-	setInterval(function() {
-		Game.update();
-		Game.draw();
-	}, 1000 / Game.fps);
-
-	setInterval(Game.fpsCounter, 1000);
-};
-
-Game.update = function()
-{
-	board.update();
-};
-
-Game.draw = function()
-{
-	context.fillStyle = 'white';
-	context.clearRect(0, 0, canvas.width, canvas.height);
-
-	board.draw();
-
-	Game.frame++; Game.frameCount++;
-
-	context.fillStyle = 'black';
-	context.font = 'italic 20pt Calibri';
-	context.textAlign = 'right';
-	context.textBaseline = 'top';
-	context.fillText("FPS: " + Game.realFps, 490, 0);
-	context.fillStyle = 'white';
-	context.fillText("FPS: " + Game.realFps, 492, 2);
-};
-
-// From 0 to 255 {r g b a}
-Game.setContextToColor = function(tempColor)
-{
-	context.fillStyle = "rgba("+tempColor.r+","+tempColor.g+","
-								+tempColor.b+","+tempColor.a+")";
-};
-
-//*************************************************//
 //					POOL BOARD					   //
 //*************************************************//
-function PoolBoard(canvasWidth = 1, sideCells = 1, baseThermalConductivity = 0, numPellets = 0, pelletMass = 1, numHeatSources = 0)
-{
-	this.initialize(canvasWidth, sideCells, baseThermalConductivity, numPellets, pelletMass, numHeatSources);
-}
+const SIMULATION_SIZE = 500;
 
 // Directions (0 - up, 1 - left, 2 - down, 3 - right)
-PoolBoard.DIRECTIONS = [{x:0,y:-1},{x:-1,y:0},{x:0,y:1},{x:1,y:0}];
-// Directions (0 - up, 1 - up-left, 2 - left, 3 - down-left, 
+var DIRECTIONS = [{ x: 0, y: -1 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 0 }];
+// Directions (0 - up, 1 - up-left, 2 - left, 3 - down-left,
 // 			   4 - down, 5 - down-right, 6 - right, 7 - up-right )
-PoolBoard.EIGHT_DIRECTIONS = [{x:0,y:-1},{x:-1,y:-1},{x:-1,y:0},{x:-1,y:1},
-						      {x:0,y: 1},{x:1,y:1},{x:0,y:1},{x:1,y:-1}];
+var EIGHT_DIRECTIONS = [{ x: 0, y: -1 }, { x: -1, y: -1 }, { x: -1, y: 0 }, { x: -1, y: 1 },
+    { x: 0, y: 1 }, { x: 1, y: 1 }, { x: 0, y: 1 }, { x: 1, y: -1 }];
 
-PoolBoard.Pellet = function(x, y, size, mass, heatContribution)
-{
-	this.x = x;
-	this.y = y;
-    this.heatContribution = heatContribution;
-	this.size = size;
-	this.mass = mass;
-};
+class Pellet {
+    constructor(x, y, size, mass, heatContribution) {
+        this.x = x;
+        this.y = y;
+        this.heatContribution = heatContribution;
+        this.size = size;
+        this.mass = mass;
+    }
+    static getSqrdDistance(p1, p2) {
+        var distX = p1.x - p2.x;
+        var distY = p1.y - p2.y;
+        return distX * distX + distY * distY;
+    }
+}
 
-PoolBoard.SinHeatSource = function(x, y, period)
-{
-	this.x = x; this.y = y;
-	this.period = period;
-};
+class SinHeatSource {
+    constructor(x, y, period) {
+        this.x = x; this.y = y;
+        this.period = period;
+    }
+}
 
-PoolBoard.prototype.initialize = function(canvasWidth, sideCells, baseThermalConductivity, numPellets, pelletMass, numHeatSources) 
-{		
-	this.sideCells = sideCells;
-	this.cellSize = canvasWidth / this.sideCells;
-	this.baseThermalConductivity = baseThermalConductivity;
-	this.numPellets = numPellets;
-	this.pelletMass = pelletMass;
-	this.numHeatSources = numHeatSources;
+class PoolBoard {
+    constructor(canvasWidth = 1, sideCells = 1, baseThermalConductivity = 0, numPellets = 0, pelletMass = 1, numHeatSources = 0) {
+        this.sideCells = sideCells;
+        this.cellSize = SIMULATION_SIZE / this.sideCells;
+        this.baseThermalConductivity = baseThermalConductivity;
+        this.numPellets = numPellets;
+        this.pelletMass = pelletMass;
+        this.numHeatSources = numHeatSources;
 
-	// Initialize cells
-	this.cells = [];
-	for(var x = 0; x < this.sideCells; x++)
-	{
-		this.cells[x] = [];
-		for(var y = 0; y < this.sideCells; y++)
-			this.cells[x][y] = Math.random();
-	}
+        // Initialize cells
+        this.cells = [];
+        for (var x = 0; x < this.sideCells; x++) {
+            this.cells[x] = [];
+            for (var y = 0; y < this.sideCells; y++)
+                this.cells[x][y] = Math.random();
+        }
 
-	// Initialize pellets
-	this.PelletList = [];
-	for( var p = 0; p < this.numPellets; p++ )
-	{
-		this.PelletList[p] = new PoolBoard.Pellet(Math.random()*500, Math.random()*500, 2, this.pelletMass, (Math.random()*20-10)*0.01);
-	}
+        // Initialize pellets
+        this.PelletList = [];
+        for (var p = 0; p < this.numPellets; p++) {
+            this.PelletList[p] = new Pellet(Math.random() * sideCells, Math.random() * sideCells, 2, this.pelletMass, (Math.random() * 20 - 10) * 0.01);
+        }
 
-	// Initialize sin heat sources
-	this.SinHeatSourceList = [];
-	for( var s = 0; s < this.numHeatSources; s++)
-	{
-		this.SinHeatSourceList[s] = new PoolBoard.SinHeatSource(Math.floor(Math.random()*this.sideCells), 
-										Math.floor(Math.random()*this.sideCells), Math.random()*30 + 30);
-	}
-};
-
-PoolBoard.prototype.draw = function() {
-	// Draw each cell
-	for(var x = 0; x < this.sideCells; x++)
-		for(var y = 0; y < this.sideCells; y++)
-		{
-			var tempColor = PoolBoard.getTemperatureColor(this.cells[x][y]);
-			Game.setContextToColor(tempColor);
-			context.fillRect(x*this.cellSize, y*this.cellSize, 
-				               this.cellSize,   this.cellSize);
-		}
-
-	// Draw the pellets
-	context.fillStyle = 'black';
-	for( var p = 0; p < this.numPellets; p++ )
-	{
-		var pellet = this.PelletList[p];
-		context.fillRect(pellet.x+pellet.size/2, pellet.y+pellet.size/2, pellet.size, pellet.size);
-	}
-};
-
-PoolBoard.prototype.update = function() {
-	var cellChanges = [];
-	var cells = this.cells;
-	var cellFlowX = [];
-	var cellFlowY = [];
-	var cellPelletList = [];
-	var pelletVel = [];
-    
-    // Do nothing if not initialized
-	if(cells === undefined || cells[0] === undefined) return;
-    
-    // Calculate all cells temperature change
-	for(var x = 0; x < this.sideCells; x++)
-	{
-		cellChanges[x] = [];
-		cellFlowX[x] = [];
-		cellFlowY[x] = [];
-		cellPelletList[x] = [];
-		for(var y = 0; y < this.sideCells; y++)
-		{
-			cellChanges[x][y] = 0.0;
-			cellFlowX[x][y] = 0.0;
-			cellFlowY[x][y] = 0.0;
-			cellPelletList[x][y] = [];
-            
-            for(var dir = 0; dir < PoolBoard.DIRECTIONS.length; dir++)
-            {
-                var direction = PoolBoard.DIRECTIONS[dir];
-                
-                var nextCell = PoolBoard.getNextCell(x,y,direction,this.sideCells);
-                
-                var change = PoolBoard.getTemperatureChange(cells[x][y], cells[nextCell.x][nextCell.y], this.baseThermalConductivity);
-                cellChanges[x][y] += change;
-                // positive change means heat is coming from there, so cellFlow is in the opposite direction
-                cellFlowX[x][y] += -change*direction.x; // direction.x will be 0 when y != 0
-                cellFlowY[x][y] += -change*direction.y; // direction.x will be 0 when x != 0
-                
+        // Initialize sin heat sources
+        this.SinHeatSourceList = [];
+        for (var s = 0; s < this.numHeatSources; s++) {
+            this.SinHeatSourceList[s] = new SinHeatSource(Math.floor(Math.random() * this.sideCells),
+                Math.floor(Math.random() * this.sideCells), Math.random() * 30 + 30);
+        }
+    }
+    // TODO: pass only game, do this better. NEEDS some love
+    draw(game) {
+        var context = game.context;
+        // Draw each cell
+        for (var x = 0; x < this.sideCells; x++)
+            for (var y = 0; y < this.sideCells; y++) {
+                var tempColor = this.getTemperatureColor(this.cells[x][y]);
+                game.setContextToColor(tempColor);
+                context.fillRect(x * this.cellSize, y * this.cellSize,
+                    this.cellSize, this.cellSize);
             }
-		}
-	}
 
-    // Apply temperature change
-	for(var x = 0; x < this.sideCells; x++)
-		for(var y = 0; y < this.sideCells; y++)
-			if(Math.abs(cellChanges[x][y]) > 0.000001)
-			{
-				cells[x][y] += cellChanges[x][y];
-                
-                // Cap temperature at 1.0 and 0.0
-                if(cells[x][y] > 1.0) cells[x][y] = 1.0;
-			    if(cells[x][y] < 0.0) cells[x][y] = 0.0;
-			}
+        // Draw the pellets
+        context.fillStyle = 'black';
+        for (var p = 0; p < this.numPellets; p++) {
+            var pellet = this.PelletList[p];
+            context.fillRect(pellet.x * this.cellSize + pellet.size / 2, pellet.y * this.cellSize + pellet.size / 2, pellet.size, pellet.size);
+        }
+    }
+    update(game) {
+        // Use fixed simulation size so cell size is consistent regardless of display canvas size
+        this.cellSize = SIMULATION_SIZE / this.sideCells;
+        var cellChanges = [];
+        var cells = this.cells;
+        var cellFlowX = [];
+        var cellFlowY = [];
+        var cellPelletList = [];
+        var pelletVel = [];
 
-    // Simulate all heat sources changing through time
-	for(var s = 0; s < this.numHeatSources; s++)
-	{
-		var heatSource = this.SinHeatSourceList[s];
-		cells[heatSource.x][heatSource.y] = Math.sin(Game.frameCount/heatSource.period);
-	}
+        // Do nothing if not initialized
+        if (cells === undefined || cells[0] === undefined) return;
 
-    // Update the pellets
-	for( var p = 0; p < this.numPellets; p++ )
-	{
-		var pellet = this.PelletList[p];
-		
-        // Get the cell for the current pellet
-		var cellX = Math.floor(pellet.x / this.cellSize);
-		var cellY = Math.floor(pellet.y / this.cellSize);
+        // Calculate all cells temperature change
+        for (var x = 0; x < this.sideCells; x++) {
+            cellChanges[x] = [];
+            cellFlowX[x] = [];
+            cellFlowY[x] = [];
+            cellPelletList[x] = [];
+            for (var y = 0; y < this.sideCells; y++) {
+                cellChanges[x][y] = 0.0;
+                cellFlowX[x][y] = 0.0;
+                cellFlowY[x][y] = 0.0;
+                cellPelletList[x][y] = [];
 
-		// Add the current pellet to the corresponding cellPelletList
-		cellPelletList[cellX][cellY].push(p);
+                for (var dir = 0; dir < DIRECTIONS.length; dir++) {
+                    var direction = DIRECTIONS[dir];
 
-        // Just in case a pellet is outside the board
-		if(cellX >= this.sideCells) cellX = this.sideCells - 1;
-		if(cellX < 0) cellX = 0;
-		if(cellY >= this.sideCells) cellY = this.sideCells -1;
-		if(cellY < 0) cellY = 0;
+                    var nextCell = this.getNextCell(x, y, direction, this.sideCells);
 
-        // Calculate the velocity of the pellet based on the current cells flow
-		pelletVel[p] = {};
-		pelletVel[p].x = cellFlowX[cellX][cellY]*(10000/pellet.mass);
-		pelletVel[p].y = cellFlowY[cellX][cellY]*(10000/pellet.mass);	
-	}
+                    var change = this.getTemperatureChange(cells[x][y], cells[nextCell.x][nextCell.y], this.baseThermalConductivity);
+                    cellChanges[x][y] += change;
+                    // positive change means heat is coming from there, so cellFlow is in the opposite direction
+                    cellFlowX[x][y] += -change * direction.x; // direction.x will be 0 when y != 0
+                    cellFlowY[x][y] += -change * direction.y; // direction.x will be 0 when x != 0
+                }
+            }
+        }
 
-	// Check for collisionsi and apply velocity
-	for( var p = 0; p < this.numPellets; p++ )
-	{
+        // Apply temperature change
+        for (x = 0; x < this.sideCells; x++)
+            for (y = 0; y < this.sideCells; y++)
+                if (Math.abs(cellChanges[x][y]) > 0.000001) {
+                    cells[x][y] += cellChanges[x][y];
 
-		var pellet = this.PelletList[p];
-		
-        // Get the cell for the current pellet
-		var cellX = Math.floor(pellet.x / this.cellSize);
-		var cellY = Math.floor(pellet.y / this.cellSize);
+                    // Cap temperature at 1.0 and 0.0
+                    if (cells[x][y] > 1.0) cells[x][y] = 1.0;
+                    if (cells[x][y] < 0.0) cells[x][y] = 0.0;
+                }
 
-		// Go to the next cell in all eight directions
-		for( var dir = 0; dir < PoolBoard.EIGHT_DIRECTIONS.length; dir++)
-		{
-			var direction = PoolBoard.EIGHT_DIRECTIONS[dir];
+        // Simulate all heat sources changing through time
+        for (var s = 0; s < this.numHeatSources; s++) {
+            var heatSource = this.SinHeatSourceList[s];
+            cells[heatSource.x][heatSource.y] = Math.sin(game.frameCount / heatSource.period);
+        }
 
-			var nextCell = PoolBoard.getNextCell(cellX,cellY,direction,this.sideCells);
+        // Update the pellets
+        for (var p = 0; p < this.numPellets; p++) {
+            var pellet = this.PelletList[p];
 
-			// Check only with pellets within that cell
-			for( var pi = 0; pi < cellPelletList[nextCell.x][nextCell.y].length; pi++ )
-			{
-				var currentPelletID = cellPelletList[nextCell.x][nextCell.y][pi];
-				// dont try to collide with itself
-				if(currentPelletID == p) continue;
+            // Get the cell for the current pellet
+            var cellX = Math.floor(pellet.x);
+            var cellY = Math.floor(pellet.y);
 
-				var pelletP = this.PelletList[currentPelletID];
+            // Add the current pellet to the corresponding cellPelletList
+            cellPelletList[cellX][cellY].push(p);
 
-				var dist = PoolBoard.getSqrdDistance(pellet.x + pelletVel[p].x, pellet.y + pelletVel[p].y,
-													pelletP.x, pelletP.y);
+            // Calculate the velocity of the pellet based on the current cells flow
+            pelletVel[p] = {};
+            pelletVel[p].x = cellFlowX[cellX][cellY] * (10 / pellet.mass);
+            pelletVel[p].y = cellFlowY[cellX][cellY] * (10 / pellet.mass);
+        }
 
-				if(dist < (pelletP.size + pellet.size)*(pelletP.size + pellet.size) )
-				{
+        // Check for collisions and apply velocity
+        for (p = 0; p < this.numPellets; p++) {
 
-					// binary search the right multiplier
-					var vML = 0.0; // vel multiplier low
-					var vMH = 1.0; // vel multiplier high
+            pellet = this.PelletList[p];
 
-					while(Math.abs(vML - vMH) > 0.0001)
-					{
-						var midVelX = (vMH+vML)/2*pelletVel[p].x;
-						var midVelY = (vMH+vML)/2*pelletVel[p].y;
+            // Get the cell for the current pellet
+            cellX = Math.floor(pellet.x);
+            cellY = Math.floor(pellet.y);
 
-						var middleDist = PoolBoard.getSqrdDistance(pellet.x + midVelX, 
-													pellet.y + midVelY,
-													pelletP.x, pelletP.y);
+            // Go to the next cell in all eight directions
+            for (dir = 0; dir < EIGHT_DIRECTIONS.length; dir++) {
+                direction = EIGHT_DIRECTIONS[dir];
 
-						// collision, go down
-						if(middleDist < (pelletP.size + pellet.size)*(pelletP.size + pellet.size) )
-						{
-							vMH = (vMH+vML)/2;						
-						}
-						else
-						{
-							vML = (vMH+vML)/2;
-						}
-					}
+                nextCell = this.getNextCell(cellX, cellY, direction, this.sideCells);
 
-					pelletVel[p].x *= vML;
-					pelletVel[p].y *= vML;
-				}
-			}
-		}
+                // Check only with pellets within that cell
+                for (var pi = 0; pi < cellPelletList[nextCell.x][nextCell.y].length; pi++) {
+                    var currentPelletID = cellPelletList[nextCell.x][nextCell.y][pi];
+                    // dont try to collide with itself
+                    if (currentPelletID === p) continue;
 
-        // Update position
-		pellet.x += pelletVel[p].x;
-		pellet.y += pelletVel[p].y;
+                    var pelletP = this.PelletList[currentPelletID];
+
+                    var dist = this.getSqrdDistance(pellet.x + pelletVel[p].x, pellet.y + pelletVel[p].y,
+                        pelletP.x, pelletP.y);
+
+                    if (dist < (pelletP.size + pellet.size) / this.cellSize * (pelletP.size + pellet.size) / this.cellSize) {
+
+                        // binary search the right multiplier
+                        var vML = 0.0; // vel multiplier low
+                        var vMH = 1.0; // vel multiplier high
+
+                        while (Math.abs(vML - vMH) > 0.0001) {
+                            var midVelX = (vMH + vML) / 2 * pelletVel[p].x;
+                            var midVelY = (vMH + vML) / 2 * pelletVel[p].y;
+
+                            var middleDist = this.getSqrdDistance(pellet.x + midVelX,
+                                pellet.y + midVelY,
+                                pelletP.x, pelletP.y);
+
+                            // collision, go down
+                            if (middleDist < (pelletP.size + pellet.size) * (pelletP.size + pellet.size)) {
+                                vMH = (vMH + vML) / 2;
+                            }
+                            else {
+                                vML = (vMH + vML) / 2;
+                            }
+                        }
+
+                        pelletVel[p].x *= vML;
+                        pelletVel[p].y *= vML;
+                    }
+                }
+            }
+
+            // Update position
+            pellet.x += pelletVel[p].x;
+            pellet.y += pelletVel[p].y;
+
+            // Wrap around
+            if (pellet.x > this.sideCells)
+                pellet.x = 0;
+            if (pellet.x < 0)
+                pellet.x = this.sideCells - 0.001;
+            if (pellet.y > this.sideCells)
+                pellet.y = 0;
+            if (pellet.y < 0)
+                pellet.y = this.sideCells - 0.001;
+
+            // Update heat contribution to the current cell
+            cells[cellX][cellY] += pellet.heatContribution;
+        }
+    }
+    // Temp1 temp2 from 0 to 1.0
+    getTemperatureChange(sourceTemp, targetTemp, thermalConductivity) {
+        return (targetTemp - sourceTemp) * thermalConductivity;
+    }
+    getSqrdDistance(pellet1X, pellet1Y, pellet2X, pellet2Y) {
+        var distX = pellet1X - pellet2X;
+        var distY = pellet1Y - pellet2Y;
+        return distX * distX + distY * distY;
+    } // make this static to the pellet class
+    // Temperature from 0.0 to 1.0
+    getTemperatureColor(temperature) {
+        var color = {};
+        color.r = temperature;
+        color.g = 0;
+        color.b = 1.0 - temperature;
+        color.a = 1.0;
+
+        return color;
+    }
+    getNextCell(currentCellX, currentCellY, direction, sideCells) {
+        var nextCell = { x: currentCellX + direction.x, y: currentCellY + direction.y };
 
         // Wrap around
-		if(pellet.x > canvas.width)
-			pellet.x = 0;
-		if(pellet.x < 0)
-			pellet.x = canvas.width - 1;
-		if(pellet.y > canvas.height)
-			pellet.y = 0;
-		if(pellet.y < 0)
-			pellet.y = canvas.height - 1;
-        
-        // Update heat contribution to the current cell
-        cells[cellX][cellY] += pellet.heatContribution;
-	}
-};
+        if (nextCell.x >= sideCells)
+            nextCell.x = 0;
+        if (nextCell.x < 0)
+            nextCell.x = sideCells - 1;
+        if (nextCell.y >= sideCells)
+            nextCell.y = 0;
+        if (nextCell.y < 0)
+            nextCell.y = sideCells - 1;
 
-// Temp1 temp2 from 0 to 1.0
-PoolBoard.getTemperatureChange = function(sourceTemp, targetTemp, thermalConductivity)
-{
-	return (targetTemp - sourceTemp)*thermalConductivity;
+        return nextCell;
+    }
 }
 
-PoolBoard.getSqrdDistance = function(pellet1X, pellet1Y, pellet2X, pellet2Y)
-{
-	var distX = pellet1X - pellet2X;
-	var distY = pellet1Y - pellet2Y;
-	return distX*distX + distY*distY;
+//*************************************************//
+//					GAME						   //
+//*************************************************//
+class Game {
+    constructor(canvasId) {
+        this.canvas = document.getElementById(canvasId);
+        this.context = this.canvas.getContext('2d');
+        this.fps = 60;
+        this.frame = 0;
+        this.frameCount = 0;
+        this.realFps = -1;
+        this.board = new PoolBoard();
+        this.started = false;
+        this._intervalId = null;
+        this._fpsIntervalId = null;
+
+        this.zoom = 1.0;
+        this.panX = 0;
+        this.panY = 0;
+        this._isDragging = false;
+        this._lastMouseX = 0;
+        this._lastMouseY = 0;
+        this._zoomDisplay = document.getElementById('zoomDisplay');
+
+        this._setupResizeHandler();
+        this._setupInputHandlers();
+    }
+
+    _setupResizeHandler() {
+        const resize = () => {
+            const container = this.canvas.parentElement;
+            const size = Math.max(100, Math.min(container.clientWidth - 32, container.clientHeight - 32));
+            this.canvas.width = size;
+            this.canvas.height = size;
+            this._clampPan();
+        };
+        new ResizeObserver(resize).observe(this.canvas.parentElement);
+        resize();
+    }
+
+    _setupInputHandlers() {
+        this.canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+            this.setZoom(this.zoom * factor, e.offsetX, e.offsetY);
+        }, { passive: false });
+
+        this.canvas.addEventListener('mousedown', (e) => {
+            this._isDragging = true;
+            this._lastMouseX = e.clientX;
+            this._lastMouseY = e.clientY;
+            this.canvas.style.cursor = 'grabbing';
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!this._isDragging) return;
+            this.panX += e.clientX - this._lastMouseX;
+            this.panY += e.clientY - this._lastMouseY;
+            this._lastMouseX = e.clientX;
+            this._lastMouseY = e.clientY;
+            this._clampPan();
+        });
+
+        window.addEventListener('mouseup', () => {
+            this._isDragging = false;
+            this.canvas.style.cursor = 'grab';
+        });
+    }
+
+    setZoom(newZoom, pivotX = this.canvas.width / 2, pivotY = this.canvas.height / 2) {
+        newZoom = Math.max(1.0, Math.min(8.0, newZoom));
+        const ratio = newZoom / this.zoom;
+        this.panX = pivotX - ratio * (pivotX - this.panX);
+        this.panY = pivotY - ratio * (pivotY - this.panY);
+        this.zoom = newZoom;
+        this._clampPan();
+    }
+
+    resetView() {
+        this.zoom = 1.0;
+        this.panX = 0;
+        this.panY = 0;
+    }
+
+    _clampPan() {
+        const scaledSize = this.canvas.width * this.zoom;
+        this.panX = Math.min(0, Math.max(this.canvas.width - scaledSize, this.panX));
+        this.panY = Math.min(0, Math.max(this.canvas.height - scaledSize, this.panY));
+    }
+
+    initialize() {
+        var sideCells = document.getElementById("sideCellsTxt").value;
+        var numPellets = document.getElementById("numPelletsTxt").value;
+        var thermalCond = document.getElementById("thermalCondTxt").value;
+        var pelletMass = document.getElementById("pelletMassTxt").value;
+        var numHeatSources = document.getElementById("numHeatSourcesTxt").value;
+        this.board = new PoolBoard(SIMULATION_SIZE, sideCells, thermalCond, numPellets, pelletMass, numHeatSources);
+        this.started = true;
+        this.resetView();
+    }
+
+    run() {
+        if (this._intervalId) clearInterval(this._intervalId);
+        if (this._fpsIntervalId) clearInterval(this._fpsIntervalId);
+        this._intervalId = setInterval(() => {
+            this.update();
+            this.draw();
+        }, 1000 / this.fps);
+        this._fpsIntervalId = setInterval(() => {
+            this.realFps = this.frame;
+            this.frame = 0;
+        }, 1000);
+    }
+
+    update() {
+        if (this.started) this.board.update(this);
+    }
+
+    draw() {
+        this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+        if (!this.started) {
+            this._drawPlaceholder();
+            return;
+        }
+
+        const displayScale = this.canvas.width / SIMULATION_SIZE;
+        const totalScale = displayScale * this.zoom;
+
+        this.context.save();
+        this.context.setTransform(totalScale, 0, 0, totalScale, this.panX, this.panY);
+        this.board.draw(this);
+        this.context.restore();
+
+        this.frame++;
+        this.frameCount++;
+
+        // FPS overlay
+        this.context.font = '13px monospace';
+        this.context.textAlign = 'right';
+        this.context.textBaseline = 'top';
+        this.context.fillStyle = 'rgba(0,0,0,0.55)';
+        this.context.fillRect(this.canvas.width - 94, 6, 88, 22);
+        this.context.fillStyle = '#4ecca3';
+        this.context.fillText('FPS: ' + this.realFps, this.canvas.width - 8, 10);
+
+        if (this._zoomDisplay) this._zoomDisplay.textContent = this.zoom.toFixed(1) + '×';
+    }
+
+    _drawPlaceholder() {
+        const cx = this.canvas.width / 2;
+        const cy = this.canvas.height / 2;
+        const lines = [
+            'Each cell has a heat value — red is hot, blue is cold.',
+            'Heat transfers between adjacent cells,',
+            'controlled by Thermal Conductivity.',
+            '',
+            'Pellets move with the heat flow and contribute',
+            'heat to their current cell,',
+            'controlled by Pellet Mass.',
+            '',
+            'Configure the parameters and press Run to start.',
+        ];
+
+        this.context.textAlign = 'center';
+        this.context.textBaseline = 'middle';
+
+        const lineHeight = 22;
+        const startY = cy - ((lines.length * lineHeight) / 2);
+
+        lines.forEach((line, i) => {
+            if (line === '') return;
+            const isCallToAction = i === lines.length - 1;
+            this.context.font = isCallToAction
+                ? 'italic 14px "Segoe UI", system-ui, sans-serif'
+                : '14px "Segoe UI", system-ui, sans-serif';
+            this.context.fillStyle = isCallToAction ? '#606080' : '#383858';
+            this.context.fillText(line, cx, startY + i * lineHeight);
+        });
+    }
+
+    // color: { r, g, b, a } with r/g/b in range 0.0–1.0, a in range 0.0–1.0
+    // fill: true sets fillStyle, false sets strokeStyle
+    setContextToColor(color, fill = true) {
+        var r = Math.floor(color.r * 255);
+        var g = Math.floor(color.g * 255);
+        var b = Math.floor(color.b * 255);
+        var style = "rgba(" + r + "," + g + "," + b + "," + color.a + ")";
+        if (fill) this.context.fillStyle = style;
+        else this.context.strokeStyle = style;
+    }
 }
 
-// Temperature from 0.0 to 1.0
-PoolBoard.getTemperatureColor = function(temperature)
-{
-	var color = {};
-	color.r = Math.floor(temperature*255);
-	color.g = 0;
-	color.b = Math.floor(255 - temperature*255);
-	color.a = 1.0;
-
-	return color;
-}
-
-// Get the next cell
-PoolBoard.getNextCell = function(currentCellX, currentCellY, direction, sideCells)
-{
-    var nextCell = {x:currentCellX+direction.x, y:currentCellY+direction.y};
-    
-    // Wrap around
-    if(nextCell.x >= sideCells)
-        nextCell.x = 0;
-    if(nextCell.x < 0)
-        nextCell.x = sideCells - 1;
-    if(nextCell.y >= sideCells)
-        nextCell.y = 0;
-    if(nextCell.y < 0)
-        nextCell.y = sideCells - 1;
-    
-    return nextCell;
-}
-
-//**********************************************//
-//					MAIN						//
-//**********************************************//
-
-var canvas = document.getElementById('poolCanvas'),
-	context = canvas.getContext('2d');
-
-var board = new PoolBoard();
-
-Game.run();
-//Game.initialize();
-
-document.getElementById("runBtn").addEventListener("click", Game.initialize);
+export { PoolBoard, Game }

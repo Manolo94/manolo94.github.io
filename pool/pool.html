@@ -1,32 +1,234 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pool Simulation</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    <h5>Each cell in the board has some heat (red - highest, blue - lowest). Heat is transfered between adjacent cells (top, right, left, bottom). How fast heat is transfered is controlled by "Base thermal conductivity". There's a number of pellets that move acording to the heat flow inside the cell they are contained. The pellets will also add or remove heat to the cell they are currently at. "Mass of each pellet" controls how fast they move relative to the heat flow.</h5>
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
 
-    <canvas id="poolCanvas" style="border-style: solid;" width="500" height="500"></canvas>
+        body {
+            background: #0d0d14;
+            color: #a0a0c0;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            font-size: 13px;
+            display: flex;
+        }
 
-    <div class="row">
-        <div class="col-lg-12">
-            Width of the board (precision):
-            <input id="sideCellsTxt" type="text" value="40"></br>
-            Number of pellets to simulate:
-            <input id="numPelletsTxt" type="text" value="500"></br>
-            Base thermal conductivity:
-            <input id="thermalCondTxt" type="text" value="0.10"></br>
-            Mass of each pellet:
-            <input id="pelletMassTxt" type="text" value="50"></br>
-            Number of heat sources:
-            <input id="numHeatSourcesTxt" type="text" value="0"></br>
-            <input id="runBtn" type="button" value="Run">
+        .canvas-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            min-width: 0;
+        }
+
+        canvas {
+            display: block;
+            background: #000;
+            cursor: grab;
+        }
+
+        .sidebar {
+            width: 220px;
+            flex-shrink: 0;
+            background: #111119;
+            border-left: 1px solid #1e1e2e;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .sidebar-title {
+            padding: 14px 16px;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            color: #c8c8e0;
+            border-bottom: 1px solid #1e1e2e;
+        }
+
+        .section {
+            padding: 14px 16px;
+            border-bottom: 1px solid #1e1e2e;
+        }
+
+        .section-label {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: #404060;
+            margin-bottom: 12px;
+        }
+
+        .field {
+            margin-bottom: 10px;
+        }
+
+        .field:last-child {
+            margin-bottom: 0;
+        }
+
+        .field label {
+            display: block;
+            margin-bottom: 4px;
+            color: #606080;
+            font-size: 11px;
+        }
+
+        .field input[type="text"] {
+            width: 100%;
+            background: #0a0a12;
+            border: 1px solid #222232;
+            color: #b0b0d0;
+            padding: 5px 8px;
+            border-radius: 3px;
+            font-size: 13px;
+            font-family: monospace;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+
+        .field input[type="text"]:focus {
+            border-color: #4ecca3;
+        }
+
+        .btn {
+            background: #16161f;
+            border: 1px solid #2a2a3a;
+            color: #9090b0;
+            padding: 6px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+            font-family: inherit;
+            transition: background 0.12s, border-color 0.12s, color 0.12s;
+        }
+
+        .btn:hover {
+            background: #1e1e2e;
+            border-color: #4ecca3;
+            color: #4ecca3;
+        }
+
+        .btn-run {
+            width: 100%;
+            padding: 8px;
+            font-size: 13px;
+            color: #4ecca3;
+            border-color: #2a5a50;
+            background: #0e1f1c;
+            margin-top: 12px;
+        }
+
+        .btn-run:hover {
+            background: #4ecca3;
+            border-color: #4ecca3;
+            color: #0d0d14;
+        }
+
+        .zoom-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+
+        .zoom-row .btn {
+            width: 28px;
+            padding: 5px 0;
+            text-align: center;
+            font-size: 15px;
+            flex-shrink: 0;
+        }
+
+        .zoom-value {
+            flex: 1;
+            text-align: center;
+            font-family: monospace;
+            font-size: 13px;
+            color: #9090b0;
+            background: #0a0a12;
+            border: 1px solid #222232;
+            border-radius: 3px;
+            padding: 5px 4px;
+            pointer-events: none;
+        }
+
+        .btn-reset {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .hint {
+            font-size: 11px;
+            color: #303050;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="canvas-container">
+        <canvas id="poolCanvas"></canvas>
+    </div>
+
+    <div class="sidebar">
+        <div class="sidebar-title">Pool Simulation</div>
+
+        <div class="section">
+            <div class="section-label">Parameters</div>
+            <div class="field">
+                <label>Board precision</label>
+                <input id="sideCellsTxt" type="text" value="40">
+            </div>
+            <div class="field">
+                <label>Pellets</label>
+                <input id="numPelletsTxt" type="text" value="500">
+            </div>
+            <div class="field">
+                <label>Thermal conductivity</label>
+                <input id="thermalCondTxt" type="text" value="0.10">
+            </div>
+            <div class="field">
+                <label>Pellet mass</label>
+                <input id="pelletMassTxt" type="text" value="50">
+            </div>
+            <div class="field">
+                <label>Heat sources</label>
+                <input id="numHeatSourcesTxt" type="text" value="0">
+            </div>
+            <button class="btn btn-run" id="runBtn">Run</button>
+        </div>
+
+        <div class="section">
+            <div class="section-label">View</div>
+            <div class="zoom-row">
+                <button class="btn" id="zoomOutBtn">−</button>
+                <span class="zoom-value" id="zoomDisplay">1.0×</span>
+                <button class="btn" id="zoomInBtn">+</button>
+            </div>
+            <button class="btn btn-reset" id="resetViewBtn">Reset View</button>
+            <p class="hint">Scroll to zoom · Drag to pan</p>
         </div>
     </div>
 
-    <script src="pool.js" type="text/javascript"></script>
-    
-    <!-- jQuery -->
-    <script src="js/jquery.js"></script>
+    <script type="module">
+        import { Game } from './pool.js';
 
-    <!-- Bootstrap Core JavaScript -->
-    <script src="js/bootstrap.min.js"></script>
+        const game = new Game('poolCanvas');
+        game.run();
 
+        document.getElementById('runBtn').addEventListener('click', () => game.initialize());
+        document.getElementById('zoomInBtn').addEventListener('click', () => game.setZoom(game.zoom * 1.25));
+        document.getElementById('zoomOutBtn').addEventListener('click', () => game.setZoom(game.zoom / 1.25));
+        document.getElementById('resetViewBtn').addEventListener('click', () => game.resetView());
+    </script>
+</body>
 </html>
