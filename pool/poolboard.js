@@ -1,4 +1,5 @@
 export const SIMULATION_SIZE = 500;
+export const PELLET_SIZE = 2;
 
 // Directions (0 - up, 1 - left, 2 - down, 3 - right)
 export var DIRECTIONS = [{ x: 0, y: -1 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 0 }];
@@ -8,12 +9,13 @@ export var EIGHT_DIRECTIONS = [{ x: 0, y: -1 }, { x: -1, y: -1 }, { x: -1, y: 0 
     { x: 0, y: 1 }, { x: 1, y: 1 }, { x: 0, y: 1 }, { x: 1, y: -1 }];
 
 export class Pellet {
-    constructor(x, y, size, mass, heatContribution) {
+    constructor(x, y, size, mass, heatContribution, energy = 1.0) {
         this.x = x;
         this.y = y;
         this.heatContribution = heatContribution;
         this.size = size;
         this.mass = mass;
+        this.energy = energy;
     }
     static getSqrdDistance(p1, p2) {
         var distX = p1.x - p2.x;
@@ -30,13 +32,15 @@ export class SinHeatSource {
 }
 
 export class PoolBoard {
-    constructor(canvasWidth = 1, sideCells = 1, baseThermalConductivity = 0, numPellets = 0, pelletMass = 1, numHeatSources = 0) {
+    constructor(sideCells = 1, baseThermalConductivity = 0, numPellets = 0, pelletMass = 1, numHeatSources = 0, initialEnergy = 500, maxHeatContribution = 0.1) {
         this.sideCells = sideCells;
         this.cellSize = SIMULATION_SIZE / this.sideCells;
         this.baseThermalConductivity = baseThermalConductivity;
         this.numPellets = numPellets;
         this.pelletMass = pelletMass;
         this.numHeatSources = numHeatSources;
+        this.initialEnergy = initialEnergy;
+        this.maxHeatContribution = maxHeatContribution;
 
         // Initialize cells
         this.cells = [];
@@ -49,7 +53,7 @@ export class PoolBoard {
         // Initialize pellets
         this.PelletList = [];
         for (var p = 0; p < this.numPellets; p++) {
-            this.PelletList[p] = new Pellet(Math.random() * sideCells, Math.random() * sideCells, 2, this.pelletMass, (Math.random() * 20 - 10) * 0.01);
+            this.PelletList[p] = new Pellet(Math.random() * sideCells, Math.random() * sideCells, PELLET_SIZE, this.pelletMass, (Math.random() * 2 - 1) * this.maxHeatContribution, this.initialEnergy);
         }
 
         // Initialize sin heat sources
@@ -71,11 +75,12 @@ export class PoolBoard {
                     this.cellSize, this.cellSize);
             }
 
-        // Draw the pellets
-        context.fillStyle = 'black';
+        // Draw the pellets — color indicates energy level (black = none, green = full)
         for (var p = 0; p < this.numPellets; p++) {
             var pellet = this.PelletList[p];
-            context.fillRect(pellet.x * this.cellSize + pellet.size / 2, pellet.y * this.cellSize + pellet.size / 2, pellet.size, pellet.size);
+            var g = Math.floor(Math.min(1, Math.max(0, pellet.energy)) * 255);
+            context.fillStyle = 'rgb(0,' + g + ',0)';
+            context.fillRect(pellet.x * this.cellSize - pellet.size / 2, pellet.y * this.cellSize - pellet.size / 2, pellet.size, pellet.size);
         }
     }
     update(game) {
@@ -220,8 +225,12 @@ export class PoolBoard {
             if (pellet.y < 0)
                 pellet.y = this.sideCells - 0.001;
 
-            // Update heat contribution to the current cell
-            cells[cellX][cellY] += pellet.heatContribution;
+            // Update heat contribution to the current cell (costs energy)
+            var energyCost = Math.abs(pellet.heatContribution);
+            if (pellet.energy >= energyCost) {
+                cells[cellX][cellY] += pellet.heatContribution;
+                pellet.energy -= energyCost;
+            }
         }
     }
     // Temp1 temp2 from 0 to 1.0

@@ -1,4 +1,4 @@
-import { PoolBoard, SIMULATION_SIZE } from './poolboard.js';
+import { PoolBoard, SIMULATION_SIZE, PELLET_SIZE } from './poolboard.js';
 
 export class Game {
     constructor(canvasId) {
@@ -19,6 +19,8 @@ export class Game {
         this._isDragging = false;
         this._lastMouseX = 0;
         this._lastMouseY = 0;
+        this._canvasMouseX = -1;
+        this._canvasMouseY = -1;
         this._zoomDisplay = document.getElementById('zoomDisplay');
 
         this._setupResizeHandler();
@@ -52,6 +54,10 @@ export class Game {
         });
 
         window.addEventListener('mousemove', (e) => {
+            const rect = this.canvas.getBoundingClientRect();
+            this._canvasMouseX = e.clientX - rect.left;
+            this._canvasMouseY = e.clientY - rect.top;
+
             if (!this._isDragging) return;
             this.panX += e.clientX - this._lastMouseX;
             this.panY += e.clientY - this._lastMouseY;
@@ -93,7 +99,9 @@ export class Game {
         var thermalCond = document.getElementById("thermalCondTxt").value;
         var pelletMass = document.getElementById("pelletMassTxt").value;
         var numHeatSources = document.getElementById("numHeatSourcesTxt").value;
-        this.board = new PoolBoard(SIMULATION_SIZE, sideCells, thermalCond, numPellets, pelletMass, numHeatSources);
+        var initialEnergy = document.getElementById("initialEnergyTxt").value;
+        var maxHeatContribution = document.getElementById("maxHeatContribTxt").value;
+        this.board = new PoolBoard(sideCells, thermalCond, numPellets, pelletMass, numHeatSources, initialEnergy, maxHeatContribution);
         this.started = true;
         this.resetView();
     }
@@ -144,6 +152,43 @@ export class Game {
         this.context.fillText('FPS: ' + this.realFps, this.canvas.width - 8, 10);
 
         if (this._zoomDisplay) this._zoomDisplay.textContent = this.zoom.toFixed(1) + '×';
+
+        this._drawTooltip();
+    }
+
+    _drawTooltip() {
+        if (this._canvasMouseX < 0) return;
+
+        const displayScale = this.canvas.width / SIMULATION_SIZE;
+        const totalScale = displayScale * this.zoom;
+        const cellSize = SIMULATION_SIZE / this.board.sideCells;
+        const HOVER_RADIUS_PX = PELLET_SIZE * 5 * this.zoom;
+
+        // Find the closest pellet within hover radius (in screen space)
+        let hovered = null;
+        let minDist = HOVER_RADIUS_PX;
+        for (var p = 0; p < this.board.numPellets; p++) {
+            const pellet = this.board.PelletList[p];
+            const sx = pellet.x * cellSize * totalScale + this.panX;
+            const sy = pellet.y * cellSize * totalScale + this.panY;
+            const dist = Math.hypot(this._canvasMouseX - sx, this._canvasMouseY - sy);
+            if (dist < minDist) { minDist = dist; hovered = pellet; }
+        }
+
+        if (!hovered) return;
+
+        const text = 'Energy: ' + hovered.energy.toFixed(3);
+        const tx = this._canvasMouseX + 14;
+        const ty = this._canvasMouseY - 10;
+
+        this.context.font = '12px monospace';
+        this.context.textAlign = 'left';
+        this.context.textBaseline = 'bottom';
+        const textW = this.context.measureText(text).width;
+        this.context.fillStyle = 'rgba(0,0,0,0.75)';
+        this.context.fillRect(tx - 4, ty - 16, textW + 8, 20);
+        this.context.fillStyle = '#4ecca3';
+        this.context.fillText(text, tx, ty);
     }
 
     _drawPlaceholder() {
