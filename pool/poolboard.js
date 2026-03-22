@@ -1,21 +1,29 @@
+import { Organism, Genome } from './organism.js';
+
 export const SIMULATION_SIZE = 500;
 export const PELLET_SIZE = 2;
 
 // Directions (0 - up, 1 - left, 2 - down, 3 - right)
 export var DIRECTIONS = [{ x: 0, y: -1 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 0 }];
 // Directions (0 - up, 1 - up-left, 2 - left, 3 - down-left,
-// 			   4 - down, 5 - down-right, 6 - right, 7 - up-right )
+//             4 - down, 5 - down-right, 6 - right, 7 - up-right )
 export var EIGHT_DIRECTIONS = [{ x: 0, y: -1 }, { x: -1, y: -1 }, { x: -1, y: 0 }, { x: -1, y: 1 },
     { x: 0, y: 1 }, { x: 1, y: 1 }, { x: 0, y: 1 }, { x: 1, y: -1 }];
 
 export class Pellet {
-    constructor(x, y, size, mass, heatContribution, energy = 1.0) {
+    // realEnergy: active fuel — depletes when contributing heat; organism dies when all reach 0
+    // storedEnergy: generated from realEnergy; transferred between connected pellets; eaten on collision
+    constructor(x, y, size, mass, heatContribution, conversionRate, energyThreshold, energy = 1.0) {
         this.x = x;
         this.y = y;
         this.heatContribution = heatContribution;
         this.size = size;
         this.mass = mass;
-        this.energy = energy;
+        this.realEnergy = energy;
+        this.storedEnergy = 0;
+        this.conversionRate = conversionRate;
+        this.energyThreshold = energyThreshold;
+        this.organismId = null;
     }
     static getSqrdDistance(p1, p2) {
         var distX = p1.x - p2.x;
@@ -32,15 +40,20 @@ export class SinHeatSource {
 }
 
 export class PoolBoard {
-    constructor(sideCells = 1, baseThermalConductivity = 0, numPellets = 0, pelletMass = 1, numHeatSources = 0, initialEnergy = 500, maxHeatContribution = 0.1) {
+    constructor(sideCells = 1, baseThermalConductivity = 0, numOrganisms = 0, pelletsPerOrg = 1, organismSize = 2, pelletMass = 1, numHeatSources = 0, initialEnergy = 500, maxHeatContribution = 0.1) {
         this.sideCells = sideCells;
         this.cellSize = SIMULATION_SIZE / this.sideCells;
         this.baseThermalConductivity = baseThermalConductivity;
-        this.numPellets = numPellets;
+        this.numOrganisms = numOrganisms;
+        this.pelletsPerOrg = pelletsPerOrg;
+        this.organismSize = organismSize;
         this.pelletMass = pelletMass;
         this.numHeatSources = numHeatSources;
         this.initialEnergy = initialEnergy;
         this.maxHeatContribution = maxHeatContribution;
+
+        // Reset organism ID counter so tooltip labels stay small each run
+        Organism._nextId = 0;
 
         // Initialize cells
         this.cells = [];
@@ -50,20 +63,46 @@ export class PoolBoard {
                 this.cells[x][y] = Math.random();
         }
 
-        // Initialize pellets
+        // Initialize pellets grouped into organisms
         this.PelletList = [];
-        for (var p = 0; p < this.numPellets; p++) {
-            this.PelletList[p] = new Pellet(Math.random() * sideCells, Math.random() * sideCells, PELLET_SIZE, this.pelletMass, (Math.random() * 2 - 1) * this.maxHeatContribution, this.initialEnergy);
+        this.organisms = [];
+        for (var o = 0; o < this.numOrganisms; o++) {
+            const genome = Genome.createRandom(this.pelletsPerOrg, this.maxHeatContribution, this.initialEnergy);
+            const slots = [];
+            const cx = Math.random() * sideCells;
+            const cy = Math.random() * sideCells;
+            for (var p = 0; p < this.pelletsPerOrg; p++) {
+                const angle = Math.random() * 2 * Math.PI;
+                const r = Math.random() * this.organismSize;
+                const pellet = new Pellet(
+                    Math.min(sideCells - 0.001, Math.max(0, cx + Math.cos(angle) * r)),
+                    Math.min(sideCells - 0.001, Math.max(0, cy + Math.sin(angle) * r)),
+                    PELLET_SIZE,
+                    this.pelletMass,
+                    genome.heatContributions[p],
+                    genome.conversionRates[p],
+                    genome.energyThresholds[p],
+                    this.initialEnergy
+                );
+                slots.push(pellet);
+                this.PelletList.push(pellet);
+            }
+            this.organisms.push(new Organism(slots, genome));
         }
 
         // Initialize sin heat sources
         this.SinHeatSourceList = [];
         for (var s = 0; s < this.numHeatSources; s++) {
-            this.SinHeatSourceList[s] = new SinHeatSource(Math.floor(Math.random() * this.sideCells),
-                Math.floor(Math.random() * this.sideCells), Math.random() * 30 + 30);
+            this.SinHeatSourceList[s] = new SinHeatSource(
+                Math.floor(Math.random() * this.sideCells),
+                Math.floor(Math.random() * this.sideCells),
+                Math.random() * 30 + 30
+            );
         }
     }
-    // TODO: pass only game, do this better. NEEDS some love
+
+    get numPellets() { return this.PelletList.length; }
+
     draw(game) {
         var context = game.context;
         // Draw each cell
@@ -75,28 +114,63 @@ export class PoolBoard {
                     this.cellSize, this.cellSize);
             }
 
-        // Draw the pellets — color indicates energy level (black = none, green = full)
-        for (var p = 0; p < this.numPellets; p++) {
+        // Draw lines between all pellets within each organism.
+        // When a pair wraps on an axis, shift B onto A's side (and vice versa) and draw
+        // two segments — one from each end — letting the canvas clip at the boundary.
+        context.strokeStyle = 'rgba(78, 204, 163, 0.35)';
+        context.lineWidth = 0.5;
+        for (const org of this.organisms) {
+            const alive = org.alivePellets;
+            for (var i = 0; i < alive.length; i++) {
+                for (var j = i + 1; j < alive.length; j++) {
+                    const a = alive[i], b = alive[j];
+                    const wrapsX = Math.abs(b.x - a.x) > this.sideCells / 2;
+                    const wrapsY = Math.abs(b.y - a.y) > this.sideCells / 2;
+
+                    const ax = a.x * this.cellSize, ay = a.y * this.cellSize;
+                    const bx = b.x * this.cellSize, by = b.y * this.cellSize;
+                    const offX = wrapsX ? (b.x > a.x ? -this.sideCells : this.sideCells) * this.cellSize : 0;
+                    const offY = wrapsY ? (b.y > a.y ? -this.sideCells : this.sideCells) * this.cellSize : 0;
+
+                    context.beginPath();
+                    context.moveTo(ax, ay);
+                    context.lineTo(bx + offX, by + offY);
+                    context.stroke();
+
+                    if (wrapsX || wrapsY) {
+                        context.beginPath();
+                        context.moveTo(bx, by);
+                        context.lineTo(ax - offX, ay - offY);
+                        context.stroke();
+                    }
+                }
+            }
+        }
+
+        // Draw pellets — color indicates real energy (black = none, green = full)
+        for (var p = 0; p < this.PelletList.length; p++) {
             var pellet = this.PelletList[p];
-            var g = Math.floor(Math.min(1, Math.max(0, pellet.energy)) * 255);
+            var g = Math.floor(Math.min(1, Math.max(0, pellet.realEnergy / this.initialEnergy)) * 255);
             context.fillStyle = 'rgb(0,' + g + ',0)';
-            context.fillRect(pellet.x * this.cellSize - pellet.size / 2, pellet.y * this.cellSize - pellet.size / 2, pellet.size, pellet.size);
+            context.fillRect(
+                pellet.x * this.cellSize - pellet.size / 2,
+                pellet.y * this.cellSize - pellet.size / 2,
+                pellet.size, pellet.size
+            );
         }
     }
+
     update(game) {
-        // Use fixed simulation size so cell size is consistent regardless of display canvas size
         this.cellSize = SIMULATION_SIZE / this.sideCells;
-        var cellChanges = [];
         var cells = this.cells;
+        if (cells === undefined || cells[0] === undefined) return;
+
+        // --- 1. Calculate cell temperature changes and flow vectors ---
+        var cellChanges = [];
         var cellFlowX = [];
         var cellFlowY = [];
         var cellPelletList = [];
-        var pelletVel = [];
 
-        // Do nothing if not initialized
-        if (cells === undefined || cells[0] === undefined) return;
-
-        // Calculate all cells temperature change
         for (var x = 0; x < this.sideCells; x++) {
             cellChanges[x] = [];
             cellFlowX[x] = [];
@@ -110,130 +184,158 @@ export class PoolBoard {
 
                 for (var dir = 0; dir < DIRECTIONS.length; dir++) {
                     var direction = DIRECTIONS[dir];
-
                     var nextCell = this.getNextCell(x, y, direction, this.sideCells);
-
                     var change = this.getTemperatureChange(cells[x][y], cells[nextCell.x][nextCell.y], this.baseThermalConductivity);
                     cellChanges[x][y] += change;
-                    // positive change means heat is coming from there, so cellFlow is in the opposite direction
-                    cellFlowX[x][y] += -change * direction.x; // direction.x will be 0 when y != 0
-                    cellFlowY[x][y] += -change * direction.y; // direction.x will be 0 when x != 0
+                    cellFlowX[x][y] += -change * direction.x;
+                    cellFlowY[x][y] += -change * direction.y;
                 }
             }
         }
 
-        // Apply temperature change
+        // --- 2. Apply temperature changes ---
         for (x = 0; x < this.sideCells; x++)
             for (y = 0; y < this.sideCells; y++)
                 if (Math.abs(cellChanges[x][y]) > 0.000001) {
                     cells[x][y] += cellChanges[x][y];
-
-                    // Cap temperature at 1.0 and 0.0
                     if (cells[x][y] > 1.0) cells[x][y] = 1.0;
                     if (cells[x][y] < 0.0) cells[x][y] = 0.0;
                 }
 
-        // Simulate all heat sources changing through time
+        // --- 3. Simulate heat sources ---
         for (var s = 0; s < this.numHeatSources; s++) {
             var heatSource = this.SinHeatSourceList[s];
             cells[heatSource.x][heatSource.y] = Math.sin(game.frameCount / heatSource.period);
         }
 
-        // Update the pellets
-        for (var p = 0; p < this.numPellets; p++) {
-            var pellet = this.PelletList[p];
+        // --- 4. Update organisms (energy conversion + connection transfers) ---
+        for (const org of this.organisms) org.update();
 
-            // Get the cell for the current pellet
+        // --- 5. Build cell pellet map + calculate individual velocities ---
+        var pelletVel = [];
+        for (var p = 0; p < this.PelletList.length; p++) {
+            var pellet = this.PelletList[p];
             var cellX = Math.floor(pellet.x);
             var cellY = Math.floor(pellet.y);
-
-            // Add the current pellet to the corresponding cellPelletList
             cellPelletList[cellX][cellY].push(p);
-
-            // Calculate the velocity of the pellet based on the current cells flow
-            pelletVel[p] = {};
-            pelletVel[p].x = cellFlowX[cellX][cellY] * (10 / pellet.mass);
-            pelletVel[p].y = cellFlowY[cellX][cellY] * (10 / pellet.mass);
+            pelletVel[p] = {
+                x: cellFlowX[cellX][cellY] * (10 / pellet.mass),
+                y: cellFlowY[cellX][cellY] * (10 / pellet.mass)
+            };
         }
 
-        // Check for collisions and apply velocity
-        for (p = 0; p < this.numPellets; p++) {
+        // --- 6. Replace organism member velocities with group average ---
+        // Build O(1) pellet→index map to avoid repeated indexOf calls
+        const pelletToIdx = new Map();
+        for (let i = 0; i < this.PelletList.length; i++) pelletToIdx.set(this.PelletList[i], i);
 
+        for (const org of this.organisms) {
+            const alive = org.alivePellets;
+            if (alive.length === 0) continue;
+            let avgX = 0, avgY = 0;
+            for (const ap of alive) {
+                const idx = pelletToIdx.get(ap);
+                if (idx !== undefined) { avgX += pelletVel[idx].x; avgY += pelletVel[idx].y; }
+            }
+            avgX /= alive.length;
+            avgY /= alive.length;
+            for (const ap of alive) {
+                const idx = pelletToIdx.get(ap);
+                if (idx !== undefined) { pelletVel[idx].x = avgX; pelletVel[idx].y = avgY; }
+            }
+        }
+
+        // --- 7. Collision and eating ---
+        // Same-organism pairs are skipped (they share velocity, shouldn't overlap).
+        // Cross-organism (or free pellet) collision: higher storedEnergy eats the other.
+        const toRemove = new Set();
+
+        for (p = 0; p < this.PelletList.length; p++) {
+            if (toRemove.has(p)) continue;
             pellet = this.PelletList[p];
-
-            // Get the cell for the current pellet
             cellX = Math.floor(pellet.x);
             cellY = Math.floor(pellet.y);
 
-            // Go to the next cell in all eight directions
             for (dir = 0; dir < EIGHT_DIRECTIONS.length; dir++) {
                 direction = EIGHT_DIRECTIONS[dir];
+                var nearCell = this.getNextCell(cellX, cellY, direction, this.sideCells);
 
-                nextCell = this.getNextCell(cellX, cellY, direction, this.sideCells);
+                for (var pi = 0; pi < cellPelletList[nearCell.x][nearCell.y].length; pi++) {
+                    var qIdx = cellPelletList[nearCell.x][nearCell.y][pi];
+                    if (qIdx === p || toRemove.has(qIdx)) continue;
 
-                // Check only with pellets within that cell
-                for (var pi = 0; pi < cellPelletList[nextCell.x][nextCell.y].length; pi++) {
-                    var currentPelletID = cellPelletList[nextCell.x][nextCell.y][pi];
-                    // dont try to collide with itself
-                    if (currentPelletID === p) continue;
+                    var pelletQ = this.PelletList[qIdx];
 
-                    var pelletP = this.PelletList[currentPelletID];
+                    // Same organism: no collision (they move as a unit)
+                    if (pellet.organismId !== null && pellet.organismId === pelletQ.organismId) continue;
 
-                    var dist = this.getSqrdDistance(pellet.x + pelletVel[p].x, pellet.y + pelletVel[p].y,
-                        pelletP.x, pelletP.y);
+                    var collisionThreshSq = ((pellet.size + pelletQ.size) / this.cellSize) *
+                        ((pellet.size + pelletQ.size) / this.cellSize);
+                    var distSq = this.getSqrdDistance(
+                        pellet.x + pelletVel[p].x, pellet.y + pelletVel[p].y,
+                        pelletQ.x, pelletQ.y
+                    );
 
-                    if (dist < (pelletP.size + pellet.size) / this.cellSize * (pelletP.size + pellet.size) / this.cellSize) {
-
-                        // binary search the right multiplier
-                        var vML = 0.0; // vel multiplier low
-                        var vMH = 1.0; // vel multiplier high
-
-                        while (Math.abs(vML - vMH) > 0.0001) {
-                            var midVelX = (vMH + vML) / 2 * pelletVel[p].x;
-                            var midVelY = (vMH + vML) / 2 * pelletVel[p].y;
-
-                            var middleDist = this.getSqrdDistance(pellet.x + midVelX,
-                                pellet.y + midVelY,
-                                pelletP.x, pelletP.y);
-
-                            // collision, go down
-                            if (middleDist < (pelletP.size + pellet.size) * (pelletP.size + pellet.size)) {
-                                vMH = (vMH + vML) / 2;
-                            }
-                            else {
-                                vML = (vMH + vML) / 2;
-                            }
+                    if (distSq < collisionThreshSq) {
+                        if (pellet.storedEnergy >= pelletQ.storedEnergy) {
+                            pellet.realEnergy += pelletQ.storedEnergy;
+                            toRemove.add(qIdx);
+                        } else {
+                            pelletQ.realEnergy += pellet.storedEnergy;
+                            toRemove.add(p);
+                            break; // pellet p is eaten — stop checking its neighbours
                         }
-
-                        pelletVel[p].x *= vML;
-                        pelletVel[p].y *= vML;
                     }
                 }
+                if (toRemove.has(p)) break;
             }
+        }
 
-            // Update position
+        // --- 8. Apply velocities, wrap, and heat contribution ---
+        for (p = 0; p < this.PelletList.length; p++) {
+            if (toRemove.has(p)) continue;
+            pellet = this.PelletList[p];
+            cellX = Math.floor(pellet.x); // cell before move (for heat contribution)
+            cellY = Math.floor(pellet.y);
+
             pellet.x += pelletVel[p].x;
             pellet.y += pelletVel[p].y;
 
-            // Wrap around
-            if (pellet.x > this.sideCells)
-                pellet.x = 0;
-            if (pellet.x < 0)
-                pellet.x = this.sideCells - 0.001;
-            if (pellet.y > this.sideCells)
-                pellet.y = 0;
-            if (pellet.y < 0)
-                pellet.y = this.sideCells - 0.001;
+            if (pellet.x > this.sideCells) pellet.x = 0;
+            if (pellet.x < 0) pellet.x = this.sideCells - 0.001;
+            if (pellet.y > this.sideCells) pellet.y = 0;
+            if (pellet.y < 0) pellet.y = this.sideCells - 0.001;
 
-            // Update heat contribution to the current cell (costs energy)
-            var energyCost = Math.abs(pellet.heatContribution);
-            if (pellet.energy >= energyCost) {
-                cells[cellX][cellY] += pellet.heatContribution;
-                pellet.energy -= energyCost;
+            if (pellet.realEnergy > 0) {
+                var energyCost = Math.abs(pellet.heatContribution);
+                var fraction = Math.min(1, pellet.realEnergy / energyCost);
+                cells[cellX][cellY] += pellet.heatContribution * fraction;
+                pellet.realEnergy -= energyCost * fraction;
             }
         }
+
+        // --- 9. Remove eaten pellets ---
+        for (const idx of toRemove) {
+            const dead = this.PelletList[idx];
+            if (dead.organismId !== null) {
+                const org = this.organisms.find(o => o.id === dead.organismId);
+                if (org) org.removePellet(dead);
+            }
+        }
+        // Remove in descending order to keep earlier indices valid during splice
+        const sortedRemove = [...toRemove].sort((a, b) => b - a);
+        for (const idx of sortedRemove) this.PelletList.splice(idx, 1);
+
+        // --- 10. Release starved organisms + prune dead ones ---
+        for (const org of this.organisms) {
+            const alive = org.alivePellets;
+            if (alive.length > 0 && alive.every(ap => ap.realEnergy <= 0)) {
+                org.release(); // pellets drift free, keeping their storedEnergy
+            }
+        }
+        this.organisms = this.organisms.filter(org => !org.isDead);
     }
-    // Temp1 temp2 from 0 to 1.0
+
     getTemperatureChange(sourceTemp, targetTemp, thermalConductivity) {
         return (targetTemp - sourceTemp) * thermalConductivity;
     }
@@ -241,30 +343,21 @@ export class PoolBoard {
         var distX = pellet1X - pellet2X;
         var distY = pellet1Y - pellet2Y;
         return distX * distX + distY * distY;
-    } // make this static to the pellet class
-    // Temperature from 0.0 to 1.0
+    }
     getTemperatureColor(temperature) {
         var color = {};
         color.r = temperature;
         color.g = 0;
         color.b = 1.0 - temperature;
         color.a = 1.0;
-
         return color;
     }
     getNextCell(currentCellX, currentCellY, direction, sideCells) {
         var nextCell = { x: currentCellX + direction.x, y: currentCellY + direction.y };
-
-        // Wrap around
-        if (nextCell.x >= sideCells)
-            nextCell.x = 0;
-        if (nextCell.x < 0)
-            nextCell.x = sideCells - 1;
-        if (nextCell.y >= sideCells)
-            nextCell.y = 0;
-        if (nextCell.y < 0)
-            nextCell.y = sideCells - 1;
-
+        if (nextCell.x >= sideCells) nextCell.x = 0;
+        if (nextCell.x < 0) nextCell.x = sideCells - 1;
+        if (nextCell.y >= sideCells) nextCell.y = 0;
+        if (nextCell.y < 0) nextCell.y = sideCells - 1;
         return nextCell;
     }
 }

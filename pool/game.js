@@ -95,13 +95,15 @@ export class Game {
 
     initialize() {
         var sideCells = document.getElementById("sideCellsTxt").value;
-        var numPellets = document.getElementById("numPelletsTxt").value;
+        var numOrganisms = document.getElementById("numOrganismsTxt").value;
+        var pelletsPerOrg = document.getElementById("pelletsPerOrgTxt").value;
+        var organismSize = document.getElementById("organismSizeTxt").value;
         var thermalCond = document.getElementById("thermalCondTxt").value;
         var pelletMass = document.getElementById("pelletMassTxt").value;
         var numHeatSources = document.getElementById("numHeatSourcesTxt").value;
         var initialEnergy = document.getElementById("initialEnergyTxt").value;
         var maxHeatContribution = document.getElementById("maxHeatContribTxt").value;
-        this.board = new PoolBoard(sideCells, thermalCond, numPellets, pelletMass, numHeatSources, initialEnergy, maxHeatContribution);
+        this.board = new PoolBoard(sideCells, thermalCond, numOrganisms, pelletsPerOrg, organismSize, pelletMass, numHeatSources, initialEnergy, maxHeatContribution);
         this.started = true;
         this.resetView();
     }
@@ -167,7 +169,7 @@ export class Game {
         // Find the closest pellet within hover radius (in screen space)
         let hovered = null;
         let minDist = HOVER_RADIUS_PX;
-        for (var p = 0; p < this.board.numPellets; p++) {
+        for (var p = 0; p < this.board.PelletList.length; p++) {
             const pellet = this.board.PelletList[p];
             const sx = pellet.x * cellSize * totalScale + this.panX;
             const sy = pellet.y * cellSize * totalScale + this.panY;
@@ -177,18 +179,34 @@ export class Game {
 
         if (!hovered) return;
 
-        const text = 'Energy: ' + hovered.energy.toFixed(3);
-        const tx = this._canvasMouseX + 14;
-        const ty = this._canvasMouseY - 10;
+        // Build tooltip lines
+        const lines = [
+            'Real:   ' + hovered.realEnergy.toFixed(2),
+            'Stored: ' + hovered.storedEnergy.toFixed(2),
+        ];
+        if (hovered.organismId !== null) {
+            const org = this.board.organisms.find(o => o.id === hovered.organismId);
+            lines.push('Org #' + hovered.organismId);
+            if (org) lines.push('Org stored: ' + org.totalStoredEnergy.toFixed(2));
+        } else {
+            lines.push('Free pellet');
+        }
 
         this.context.font = '12px monospace';
         this.context.textAlign = 'left';
-        this.context.textBaseline = 'bottom';
-        const textW = this.context.measureText(text).width;
+        this.context.textBaseline = 'top';
+
+        const lineH = 16;
+        const maxW = Math.max(...lines.map(l => this.context.measureText(l).width));
+        const tx = this._canvasMouseX + 14;
+        const ty = this._canvasMouseY - 10 - lines.length * lineH;
+
         this.context.fillStyle = 'rgba(0,0,0,0.75)';
-        this.context.fillRect(tx - 4, ty - 16, textW + 8, 20);
+        this.context.fillRect(tx - 4, ty - 4, maxW + 8, lines.length * lineH + 8);
         this.context.fillStyle = '#4ecca3';
-        this.context.fillText(text, tx, ty);
+        for (let i = 0; i < lines.length; i++) {
+            this.context.fillText(lines[i], tx, ty + i * lineH);
+        }
     }
 
     _drawPlaceholder() {
