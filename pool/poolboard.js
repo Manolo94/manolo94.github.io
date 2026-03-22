@@ -57,6 +57,9 @@ export class PoolBoard {
         // Reset organism ID counter so tooltip labels stay small each run
         Organism._nextId = 0;
 
+        // Death order: genomes pushed in order of death (last = lived longest = most fit)
+        this.deathOrder = [];
+
         // Initialize cells
         this.cells = [];
         for (var x = 0; x < this.sideCells; x++) {
@@ -336,7 +339,7 @@ export class PoolBoard {
             const dead = this.PelletList[idx];
             if (dead.organismId !== null) {
                 const org = this.organisms.find(o => o.id === dead.organismId);
-                if (org) org.release(); // losing any pellet kills the whole organism
+                if (org && !org.isDead) { this.deathOrder.push(org.genome); org.release(); }
             }
         }
         // Remove in descending order to keep earlier indices valid during splice
@@ -347,6 +350,7 @@ export class PoolBoard {
         for (const org of this.organisms) {
             const alive = org.alivePellets;
             if (alive.length > 0 && alive.some(ap => ap.realEnergy <= 0)) {
+                this.deathOrder.push(org.genome);
                 org.release(); // pellets drift free, keeping their storedEnergy
             }
         }
@@ -369,6 +373,45 @@ export class PoolBoard {
             a: 1.0
         };
     }
+    // Breed a new generation from elite genomes and reset the board state.
+    // eliteGenomes: Genome[] — last N from deathOrder (lived longest)
+    respawnFromGenomes(eliteGenomes, mutationRate) {
+        Organism._nextId = 0;
+        this.deathOrder = [];
+
+        for (let x = 0; x < this.sideCells; x++)
+            for (let y = 0; y < this.sideCells; y++)
+                this.cells[x][y] = Math.random();
+
+        this.PelletList = [];
+        this.organisms = [];
+
+        for (let o = 0; o < this.numOrganisms; o++) {
+            const pA = eliteGenomes[Math.floor(Math.random() * eliteGenomes.length)];
+            const pB = eliteGenomes[Math.floor(Math.random() * eliteGenomes.length)];
+            let genome = Genome.crossover(pA, pB);
+            genome = Genome.mutate(genome, mutationRate, this.maxHeatContribution, this.initialEnergy, this.organismSize);
+
+            const slots = [];
+            const cx = Math.random() * this.sideCells;
+            const cy = Math.random() * this.sideCells;
+            for (let p = 0; p < this.pelletsPerOrg; p++) {
+                const pellet = new Pellet(
+                    Math.min(this.sideCells - 0.001, Math.max(0, cx + genome.pelletOffsets[p].x)),
+                    Math.min(this.sideCells - 0.001, Math.max(0, cy + genome.pelletOffsets[p].y)),
+                    PELLET_SIZE, this.pelletMass,
+                    genome.heatContributions[p],
+                    genome.conversionRates[p],
+                    genome.energyThresholds[p],
+                    this.initialEnergy
+                );
+                slots.push(pellet);
+                this.PelletList.push(pellet);
+            }
+            this.organisms.push(new Organism(slots, genome));
+        }
+    }
+
     getNextCell(currentCellX, currentCellY, direction, sideCells) {
         var nextCell = { x: currentCellX + direction.x, y: currentCellY + direction.y };
         if (nextCell.x >= sideCells) nextCell.x = 0;

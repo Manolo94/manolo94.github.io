@@ -178,3 +178,70 @@ canvas {
     color: #303050;
     line-height: 1.6;
 }
+
+.tabs {
+    display: flex;
+    border-bottom: 1px solid #1e1e2e;
+}
+
+.tab {
+    flex: 1;
+    padding: 8px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: #606080;
+    cursor: pointer;
+    font-size: 12px;
+    font-family: inherit;
+    transition: color 0.12s, border-color 0.12s;
+}
+
+.tab.active {
+    color: #4ecca3;
+    border-bottom-color: #4ecca3;
+}
+
+.tab:hover:not(.active) {
+    color: #9090b0;
+}
+
+.pane-hidden {
+    display: none;
+}
+
+.btn-nextgen {
+    width: 100%;
+    padding: 8px;
+    font-size: 13px;
+    margin-top: 12px;
+}
+
+.btn-nextgen:disabled {
+    opacity: 0.3;
+    cursor: default;
+    pointer-events: none;
+}
+
+.autoplay-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    color: #606080;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.autoplay-row input[type="checkbox"] {
+    accent-color: #4ecca3;
+    cursor: pointer;
+}
+
+.gen-display {
+    font-family: monospace;
+    font-size: 22px;
+    color: #4ecca3;
+    text-align: center;
+    padding: 10px 0 4px;
+}

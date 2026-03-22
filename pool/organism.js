@@ -42,6 +42,76 @@ export class Genome {
 
         return new Genome(connections, heatContributions, conversionRates, energyThresholds, pelletOffsets);
     }
+
+    // Uniform crossover: each per-slot gene randomly taken from parent A or B.
+    // Connections: union of both parents' connections; duplicate (from,to) pairs take a random parent's rate.
+    // The merged set is thinned to ~70% to avoid connection bloat.
+    static crossover(a, b) {
+        const n = a.heatContributions.length;
+        const heatContributions = [];
+        const conversionRates = [];
+        const energyThresholds = [];
+        const pelletOffsets = [];
+
+        for (let i = 0; i < n; i++) {
+            const useA = Math.random() < 0.5;
+            heatContributions.push(useA ? a.heatContributions[i] : b.heatContributions[i]);
+            conversionRates.push(useA ? a.conversionRates[i] : b.conversionRates[i]);
+            energyThresholds.push(useA ? a.energyThresholds[i] : b.energyThresholds[i]);
+            pelletOffsets.push({ ...(useA ? a.pelletOffsets[i] : b.pelletOffsets[i]) });
+        }
+
+        const connMap = new Map();
+        const key = c => `${c.from},${c.to}`;
+        for (const c of a.connections) connMap.set(key(c), { ...c });
+        for (const c of b.connections) {
+            const k = key(c);
+            if (connMap.has(k)) { if (Math.random() < 0.5) connMap.set(k, { ...c }); }
+            else connMap.set(k, { ...c });
+        }
+        const connections = [...connMap.values()].filter(() => Math.random() < 0.7);
+
+        return new Genome(connections, heatContributions, conversionRates, energyThresholds, pelletOffsets);
+    }
+
+    // Point mutation: each value independently perturbed with probability mutationRate.
+    static mutate(genome, mutationRate, maxHeatContribution, initialEnergy, organismSize) {
+        const n = genome.heatContributions.length;
+        const rnd = () => Math.random() * 2 - 1;
+
+        const heatContributions = genome.heatContributions.map(v =>
+            Math.random() < mutationRate
+                ? Math.max(-maxHeatContribution, Math.min(maxHeatContribution, v + rnd() * maxHeatContribution * 0.3))
+                : v
+        );
+        const conversionRates = genome.conversionRates.map(v =>
+            Math.random() < mutationRate ? Math.max(0.001, v + rnd() * 0.005) : v
+        );
+        const energyThresholds = genome.energyThresholds.map(v =>
+            Math.random() < mutationRate ? Math.max(0, v + rnd() * initialEnergy * 0.2) : v
+        );
+        const pelletOffsets = genome.pelletOffsets.map(o =>
+            Math.random() < mutationRate
+                ? { x: o.x + rnd() * organismSize * 0.3, y: o.y + rnd() * organismSize * 0.3 }
+                : { ...o }
+        );
+
+        // Perturb existing connections; occasionally drop or add one
+        let connections = genome.connections
+            .filter(() => Math.random() > mutationRate * 0.3)
+            .map(c => Math.random() < mutationRate
+                ? { ...c, rate: Math.max(0.001, c.rate + rnd() * 0.003) }
+                : { ...c }
+            );
+        if (Math.random() < mutationRate) {
+            const i = Math.floor(Math.random() * n);
+            const j = Math.floor(Math.random() * n);
+            if (i !== j && !connections.some(c => c.from === i && c.to === j))
+                connections.push({ from: i, to: j, rate: Math.random() * 0.009 + 0.001 });
+        }
+
+        return new Genome(connections, heatContributions, conversionRates, energyThresholds, pelletOffsets);
+    }
 }
 
 export class Organism {

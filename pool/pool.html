@@ -13,7 +13,12 @@
 
     <div class="sidebar">
         <div class="sidebar-title">Pool Simulation</div>
+        <div class="tabs">
+            <button class="tab active" id="tabSim">Simulation</button>
+            <button class="tab" id="tabGA">Evolution</button>
+        </div>
 
+        <div id="paneSim">
         <div class="section">
             <div class="section-label">Parameters</div>
             <div class="field">
@@ -55,6 +60,30 @@
             <button class="btn btn-run" id="runBtn">Run</button>
             <button class="btn btn-pause" id="pauseBtn" disabled>Pause</button>
         </div>
+        </div><!-- end #paneSim -->
+
+        <div id="paneGA" class="pane-hidden">
+        <div class="section">
+            <div class="section-label">Genetic Algorithm</div>
+            <div class="field">
+                <label>Elite survivors</label>
+                <input id="eliteCountTxt" type="text" value="5">
+            </div>
+            <div class="field">
+                <label>Mutation rate</label>
+                <input id="mutationRateTxt" type="text" value="0.1">
+            </div>
+            <button class="btn btn-nextgen" id="nextGenBtn" disabled>Next Generation</button>
+            <label class="autoplay-row">
+                <input type="checkbox" id="autoplayChk">
+                Autoplay
+            </label>
+        </div>
+        <div class="section">
+            <div class="section-label">Progress</div>
+            <div class="gen-display" id="genDisplay">—</div>
+        </div>
+        </div><!-- end #paneGA -->
 
         <div class="section">
             <div class="section-label">View</div>
@@ -74,6 +103,19 @@
         const game = new Game('poolCanvas');
         game.run();
 
+        document.getElementById('tabSim').addEventListener('click', () => {
+            document.getElementById('paneSim').classList.remove('pane-hidden');
+            document.getElementById('paneGA').classList.add('pane-hidden');
+            document.getElementById('tabSim').classList.add('active');
+            document.getElementById('tabGA').classList.remove('active');
+        });
+        document.getElementById('tabGA').addEventListener('click', () => {
+            document.getElementById('paneGA').classList.remove('pane-hidden');
+            document.getElementById('paneSim').classList.add('pane-hidden');
+            document.getElementById('tabGA').classList.add('active');
+            document.getElementById('tabSim').classList.remove('active');
+        });
+
         document.getElementById('runBtn').addEventListener('click', () => {
             game.initialize();
             document.getElementById('runBtn').textContent = 'Restart';
@@ -84,6 +126,12 @@
         document.getElementById('pauseBtn').addEventListener('click', () => {
             game.togglePause();
             document.getElementById('pauseBtn').textContent = game.paused ? 'Resume' : 'Pause';
+        });
+        document.getElementById('nextGenBtn').addEventListener('click', () => {
+            game.nextGeneration();
+        });
+        document.getElementById('autoplayChk').addEventListener('change', e => {
+            game.gaConfig.autoplay = e.target.checked;
         });
         document.getElementById('zoomInBtn').addEventListener('click', () => game.setZoom(game.zoom * 1.25));
         document.getElementById('zoomOutBtn').addEventListener('click', () => game.setZoom(game.zoom / 1.25));

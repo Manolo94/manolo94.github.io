@@ -23,6 +23,8 @@ export class Game {
         this._canvasMouseX = -1;
         this._canvasMouseY = -1;
         this._zoomDisplay = document.getElementById('zoomDisplay');
+        this.generation = 0;
+        this.gaConfig = { autoplay: false };
 
         this._setupResizeHandler();
         this._setupInputHandlers();
@@ -107,7 +109,10 @@ export class Game {
         this.board = new PoolBoard(sideCells, thermalCond, numOrganisms, pelletsPerOrg, organismSize, pelletMass, numHeatSources, initialEnergy, maxHeatContribution);
         this.started = true;
         this.paused = false;
+        this.generation = 1;
         this.resetView();
+        const genEl = document.getElementById('genDisplay');
+        if (genEl) genEl.textContent = 'Gen 1';
     }
 
     run() {
@@ -127,8 +132,28 @@ export class Game {
         this.paused = !this.paused;
     }
 
+    nextGeneration() {
+        const deathOrder = this.board.deathOrder;
+        if (deathOrder.length === 0) return;
+        const eliteCount = parseInt(document.getElementById('eliteCountTxt')?.value) || 5;
+        const mutationRate = parseFloat(document.getElementById('mutationRateTxt')?.value) || 0.1;
+        const n = Math.max(1, Math.min(eliteCount, deathOrder.length));
+        const eliteGenomes = deathOrder.slice(deathOrder.length - n);
+        this.board.respawnFromGenomes(eliteGenomes, mutationRate);
+        this.generation++;
+        const genEl = document.getElementById('genDisplay');
+        if (genEl) genEl.textContent = 'Gen ' + this.generation;
+    }
+
     update() {
-        if (this.started && !this.paused) this.board.update(this);
+        if (this.started && !this.paused) {
+            this.board.update(this);
+            if (this.gaConfig.autoplay) {
+                const eliteCount = parseInt(document.getElementById('eliteCountTxt')?.value) || 5;
+                if (this.board.organisms.length <= eliteCount && this.board.deathOrder.length > 0)
+                    this.nextGeneration();
+            }
+        }
     }
 
     draw() {
@@ -150,17 +175,23 @@ export class Game {
         this.frame++;
         this.frameCount++;
 
-        // FPS + organism count overlay
+        // FPS + organism count + generation overlay
         this.context.font = '13px monospace';
         this.context.textAlign = 'right';
         this.context.textBaseline = 'top';
         this.context.fillStyle = 'rgba(0,0,0,0.55)';
-        this.context.fillRect(this.canvas.width - 94, 6, 88, 42);
+        this.context.fillRect(this.canvas.width - 94, 6, 88, 60);
         this.context.fillStyle = '#4ecca3';
         this.context.fillText('FPS: ' + this.realFps, this.canvas.width - 8, 10);
         this.context.fillText('Org: ' + this.board.organisms.length, this.canvas.width - 8, 28);
+        this.context.fillText('Gen: ' + this.generation, this.canvas.width - 8, 46);
 
         if (this._zoomDisplay) this._zoomDisplay.textContent = this.zoom.toFixed(1) + '×';
+
+        const eliteCount = parseInt(document.getElementById('eliteCountTxt')?.value) || 5;
+        const canAdvance = this.board.organisms.length <= eliteCount && this.board.deathOrder.length > 0;
+        const nextGenBtn = document.getElementById('nextGenBtn');
+        if (nextGenBtn) nextGenBtn.disabled = !canAdvance;
 
         this._drawTooltip();
     }
