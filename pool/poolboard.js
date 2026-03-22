@@ -345,12 +345,12 @@ export class PoolBoard {
         return distX * distX + distY * distY;
     }
     getTemperatureColor(temperature) {
-        var color = {};
-        color.r = temperature;
-        color.g = 0;
-        color.b = 1.0 - temperature;
-        color.a = 1.0;
-        return color;
+        return {
+            r: temperature * 0.55,
+            g: temperature * (1 - temperature) * 0.25,  // slight warm midtone
+            b: (1.0 - temperature) * 0.38,
+            a: 1.0
+        };
     }
     getNextCell(currentCellX, currentCellY, direction, sideCells) {
         var nextCell = { x: currentCellX + direction.x, y: currentCellY + direction.y };
