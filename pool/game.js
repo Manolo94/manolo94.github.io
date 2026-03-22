@@ -25,6 +25,7 @@ export class Game {
         this._zoomDisplay = document.getElementById('zoomDisplay');
         this.generation = 0;
         this.gaConfig = { autoplay: false };
+        this.generationStats = [];
 
         this._setupResizeHandler();
         this._setupInputHandlers();
@@ -106,13 +107,17 @@ export class Game {
         var numHeatSources = document.getElementById("numHeatSourcesTxt").value;
         var initialEnergy = document.getElementById("initialEnergyTxt").value;
         var maxHeatContribution = document.getElementById("maxHeatContribTxt").value;
-        this.board = new PoolBoard(sideCells, thermalCond, numOrganisms, pelletsPerOrg, organismSize, pelletMass, numHeatSources, initialEnergy, maxHeatContribution);
+        var spawnMaxEnergy = document.getElementById("spawnMaxEnergyTxt").value;
+        var spawnIntervalTicks = Math.round(parseFloat(document.getElementById("spawnRateTxt").value) * 60);
+        this.board = new PoolBoard(sideCells, thermalCond, numOrganisms, pelletsPerOrg, organismSize, pelletMass, numHeatSources, initialEnergy, maxHeatContribution, spawnMaxEnergy, spawnIntervalTicks);
         this.started = true;
         this.paused = false;
         this.generation = 1;
+        this.generationStats = [];
         this.resetView();
         const genEl = document.getElementById('genDisplay');
         if (genEl) genEl.textContent = 'Gen 1';
+        this._drawLifetimeGraph();
     }
 
     run() {
@@ -138,11 +143,87 @@ export class Game {
         const eliteCount = parseInt(document.getElementById('eliteCountTxt')?.value) || 5;
         const mutationRate = parseFloat(document.getElementById('mutationRateTxt')?.value) || 0.1;
         const n = Math.max(1, Math.min(eliteCount, deathOrder.length));
-        const eliteGenomes = deathOrder.slice(deathOrder.length - n);
+
+        // Record lifetime stats for this generation before resetting
+        const lifetimes = deathOrder.map(e => e.lifetime);
+        const avg = lifetimes.reduce((s, v) => s + v, 0) / lifetimes.length;
+        const max = Math.max(...lifetimes);
+        this.generationStats.push({ gen: this.generation, avg, max });
+
+        const eliteGenomes = deathOrder.slice(deathOrder.length - n).map(e => e.genome);
         this.board.respawnFromGenomes(eliteGenomes, mutationRate);
         this.generation++;
         const genEl = document.getElementById('genDisplay');
         if (genEl) genEl.textContent = 'Gen ' + this.generation;
+        this._drawLifetimeGraph();
+    }
+
+    _drawLifetimeGraph() {
+        const canvas = document.getElementById('lifetimeGraph');
+        if (!canvas) return;
+        canvas.width = canvas.clientWidth || 188;
+        canvas.height = canvas.clientHeight || 110;
+        const ctx = canvas.getContext('2d');
+        const w = canvas.width, h = canvas.height;
+
+        ctx.fillStyle = '#0a0a12';
+        ctx.fillRect(0, 0, w, h);
+
+        const stats = this.generationStats;
+        if (stats.length === 0) return;
+
+        const pad = { top: 8, right: 8, bottom: 18, left: 34 };
+        const plotW = w - pad.left - pad.right;
+        const plotH = h - pad.top - pad.bottom;
+
+        const maxVal = Math.max(...stats.map(s => s.max), 1);
+        const xScale = stats.length < 2 ? 0 : plotW / (stats.length - 1);
+        const toX = i => pad.left + i * xScale;
+        const toY = v => pad.top + plotH - (v / maxVal) * plotH;
+
+        // Grid lines
+        ctx.strokeStyle = '#1a1a2a';
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 3; i++) {
+            const y = pad.top + (plotH / 3) * i;
+            ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(w - pad.right, y); ctx.stroke();
+        }
+
+        // Max lifetime (faint line)
+        ctx.strokeStyle = 'rgba(78,204,163,0.2)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let i = 0; i < stats.length; i++)
+            i === 0 ? ctx.moveTo(toX(i), toY(stats[i].max)) : ctx.lineTo(toX(i), toY(stats[i].max));
+        ctx.stroke();
+
+        // Avg lifetime (main line)
+        ctx.strokeStyle = '#4ecca3';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        for (let i = 0; i < stats.length; i++)
+            i === 0 ? ctx.moveTo(toX(i), toY(stats[i].avg)) : ctx.lineTo(toX(i), toY(stats[i].avg));
+        ctx.stroke();
+
+        // Dots
+        ctx.fillStyle = '#4ecca3';
+        for (let i = 0; i < stats.length; i++) {
+            ctx.beginPath(); ctx.arc(toX(i), toY(stats[i].avg), 2, 0, Math.PI * 2); ctx.fill();
+        }
+
+        // Y labels
+        ctx.fillStyle = '#404060';
+        ctx.font = '9px monospace';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(maxVal.toFixed(0), pad.left - 3, pad.top);
+        ctx.fillText('0', pad.left - 3, pad.top + plotH);
+
+        // X labels (first and last gen)
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText(stats[0].gen, toX(0), pad.top + plotH + 3);
+        if (stats.length > 1) ctx.fillText(stats[stats.length - 1].gen, toX(stats.length - 1), pad.top + plotH + 3);
     }
 
     update() {

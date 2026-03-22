@@ -57,6 +57,14 @@
                 <label>Max heat contribution</label>
                 <input id="maxHeatContribTxt" type="text" value="0.3">
             </div>
+            <div class="field">
+                <label>Pellet spawn energy (max)</label>
+                <input id="spawnMaxEnergyTxt" type="text" value="100">
+            </div>
+            <div class="field">
+                <label>Pellet spawn rate (seconds)</label>
+                <input id="spawnRateTxt" type="text" value="2">
+            </div>
             <button class="btn btn-run" id="runBtn">Run</button>
             <button class="btn btn-pause" id="pauseBtn" disabled>Pause</button>
         </div>
@@ -82,6 +90,10 @@
         <div class="section">
             <div class="section-label">Progress</div>
             <div class="gen-display" id="genDisplay">—</div>
+        </div>
+        <div class="section">
+            <div class="section-label">Lifetime</div>
+            <canvas id="lifetimeGraph" class="lifetime-graph"></canvas>
         </div>
         </div><!-- end #paneGA -->
 

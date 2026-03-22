@@ -42,7 +42,7 @@ export class SinHeatSource {
 }
 
 export class PoolBoard {
-    constructor(sideCells = 1, baseThermalConductivity = 0, numOrganisms = 0, pelletsPerOrg = 1, organismSize = 2, pelletMass = 1, numHeatSources = 0, initialEnergy = 500, maxHeatContribution = 0.1) {
+    constructor(sideCells = 1, baseThermalConductivity = 0, numOrganisms = 0, pelletsPerOrg = 1, organismSize = 2, pelletMass = 1, numHeatSources = 0, initialEnergy = 500, maxHeatContribution = 0.1, spawnMaxEnergy = 100, spawnIntervalTicks = 120) {
         this.sideCells = sideCells;
         this.cellSize = SIMULATION_SIZE / this.sideCells;
         this.baseThermalConductivity = baseThermalConductivity;
@@ -53,12 +53,15 @@ export class PoolBoard {
         this.numHeatSources = numHeatSources;
         this.initialEnergy = initialEnergy;
         this.maxHeatContribution = maxHeatContribution;
+        this.spawnMaxEnergy = spawnMaxEnergy;
+        this.spawnIntervalTicks = spawnIntervalTicks;
 
         // Reset organism ID counter so tooltip labels stay small each run
         Organism._nextId = 0;
 
-        // Death order: genomes pushed in order of death (last = lived longest = most fit)
+        // Death order: {genome, lifetime} pushed in order of death (last = lived longest = most fit)
         this.deathOrder = [];
+        this.tick = 0;
 
         // Initialize cells
         this.cells = [];
@@ -90,7 +93,9 @@ export class PoolBoard {
                 slots.push(pellet);
                 this.PelletList.push(pellet);
             }
-            this.organisms.push(new Organism(slots, genome));
+            const org = new Organism(slots, genome);
+            org.birthTick = this.tick;
+            this.organisms.push(org);
         }
 
         // Initialize sin heat sources
@@ -339,7 +344,7 @@ export class PoolBoard {
             const dead = this.PelletList[idx];
             if (dead.organismId !== null) {
                 const org = this.organisms.find(o => o.id === dead.organismId);
-                if (org && !org.isDead) { this.deathOrder.push(org.genome); org.release(); }
+                if (org && !org.isDead) { this.deathOrder.push({ genome: org.genome, lifetime: this.tick - org.birthTick }); org.release(); }
             }
         }
         // Remove in descending order to keep earlier indices valid during splice
@@ -350,11 +355,23 @@ export class PoolBoard {
         for (const org of this.organisms) {
             const alive = org.alivePellets;
             if (alive.length > 0 && alive.some(ap => ap.realEnergy <= 0)) {
-                this.deathOrder.push(org.genome);
+                this.deathOrder.push({ genome: org.genome, lifetime: this.tick - org.birthTick });
                 org.release(); // pellets drift free, keeping their storedEnergy
             }
         }
         this.organisms = this.organisms.filter(org => !org.isDead);
+        this.tick++;
+
+        // --- 11. Spawn free pellets at regular intervals ---
+        if (this.spawnIntervalTicks > 0 && this.tick % this.spawnIntervalTicks === 0) {
+            const pellet = new Pellet(
+                Math.random() * this.sideCells,
+                Math.random() * this.sideCells,
+                PELLET_SIZE, this.pelletMass, 0, 0, 0, 0
+            );
+            pellet.storedEnergy = Math.random() * this.spawnMaxEnergy;
+            this.PelletList.push(pellet);
+        }
     }
 
     getTemperatureChange(sourceTemp, targetTemp, thermalConductivity) {
@@ -378,6 +395,7 @@ export class PoolBoard {
     respawnFromGenomes(eliteGenomes, mutationRate) {
         Organism._nextId = 0;
         this.deathOrder = [];
+        this.tick = 0;
 
         for (let x = 0; x < this.sideCells; x++)
             for (let y = 0; y < this.sideCells; y++)
@@ -408,7 +426,9 @@ export class PoolBoard {
                 slots.push(pellet);
                 this.PelletList.push(pellet);
             }
-            this.organisms.push(new Organism(slots, genome));
+            const org = new Organism(slots, genome);
+            org.birthTick = this.tick;
+            this.organisms.push(org);
         }
     }
 
