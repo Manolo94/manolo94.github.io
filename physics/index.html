@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Physics Demo</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
+
+        body {
+            background: #0d0d14;
+            color: #a0a0c0;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            font-size: 13px;
+            display: flex;
+        }
+
+        .canvas-container {
+            flex: 1;
+            min-width: 0;
+        }
+
+        canvas {
+            display: block;
+            background: #000;
+            width: 100%;
+            height: 100%;
+        }
+
+        .sidebar {
+            width: 220px;
+            flex-shrink: 0;
+            background: #111119;
+            border-left: 1px solid #1e1e2e;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .sidebar-title {
+            padding: 14px 16px;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            color: #c8c8e0;
+            border-bottom: 1px solid #1e1e2e;
+        }
+
+        .section {
+            padding: 14px 16px;
+            border-bottom: 1px solid #1e1e2e;
+        }
+
+        .section-label {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: #404060;
+            margin-bottom: 10px;
+        }
+
+        .info-text {
+            font-size: 12px;
+            color: #505070;
+            line-height: 1.7;
+        }
+
+        .info-text b {
+            color: #7070a0;
+            font-weight: 600;
+        }
+
+        .btn {
+            background: #16161f;
+            border: 1px solid #2a2a3a;
+            color: #9090b0;
+            padding: 6px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+            font-family: inherit;
+            transition: background 0.12s, border-color 0.12s, color 0.12s;
+        }
+
+        .btn:hover {
+            background: #1e1e2e;
+            border-color: #4ecca3;
+            color: #4ecca3;
+        }
+
+        .btn-reset {
+            width: 100%;
+            padding: 8px;
+            font-size: 13px;
+            color: #4ecca3;
+            border-color: #2a5a50;
+            background: #0e1f1c;
+        }
+
+        .btn-reset:hover {
+            background: #4ecca3;
+            border-color: #4ecca3;
+            color: #0d0d14;
+        }
+    </style>
+</head>
+<body>
+    <div class="canvas-container">
+        <canvas id="physicsCanvas"></canvas>
+    </div>
+
+    <div class="sidebar">
+        <div class="sidebar-title">Physics Demo</div>
+
+        <div class="section">
+            <div class="section-label">Scene</div>
+            <button class="btn btn-reset" id="resetBtn">Reset</button>
+        </div>
+
+        <div class="section">
+            <div class="section-label">About</div>
+            <p class="info-text">
+                Rigid body simulation with gravity and floor collision.<br><br>
+                <b>Circle</b> — bounces off the floor with 0.8 restitution.<br><br>
+                <b>Rectangle</b> — resolves floor collisions per corner with impulse-based angular response.
+            </p>
+        </div>
+    </div>
+
+    <script type="module">
+        import { Physics, Circle, Rectangle } from './physicsTest.js';
+
+        const canvas = document.getElementById('physicsCanvas');
+        const context = canvas.getContext('2d');
+
+        // Resize canvas attributes to match its CSS display size
+        function resize() {
+            canvas.width = canvas.clientWidth;
+            canvas.height = canvas.clientHeight;
+        }
+        new ResizeObserver(resize).observe(canvas);
+        resize();
+
+        const game = {
+            context,
+            deltaTime: 0,
+            setContextToColor(color, fill = true) {
+                const r = Math.floor(color.r * 255);
+                const g = Math.floor(color.g * 255);
+                const b = Math.floor(color.b * 255);
+                const style = `rgba(${r},${g},${b},${color.a})`;
+                if (fill) context.fillStyle = style;
+                else context.strokeStyle = style;
+            }
+        };
+
+        // World scale: 100px per world unit. Floor is at worldY = 1.0.
+        function createScene() {
+            const world = new Physics();
+            const worldW = canvas.width / 100;
+            const worldH = canvas.height / 100;
+            const spawnY = worldH - 0.5;
+
+            const c1 = new Circle(worldW * 0.2, spawnY, 0.30);
+            c1.vel = { x: 1.2, y: 0 };
+
+            const c2 = new Circle(worldW * 0.4, spawnY * 0.85, 0.20);
+            c2.vel = { x: -0.6, y: 0.8 };
+
+            const c3 = new Circle(worldW * 0.6, spawnY * 0.70, 0.35);
+            c3.vel = { x: 0.3, y: -0.5 };
+
+            const c4 = new Circle(worldW * 0.8, spawnY * 0.90, 0.25);
+            c4.vel = { x: -1.0, y: 0.2 };
+
+            const r1 = new Rectangle(worldW * 0.35, spawnY * 0.80, 0.35, 0.15);
+            r1.rotation = 0.4;
+            r1.vel = { x: 0.5, y: 0 };
+            r1.angVel = 1.5;
+
+            const r2 = new Rectangle(worldW * 0.65, spawnY * 0.75, 0.25, 0.20);
+            r2.rotation = -0.2;
+            r2.vel = { x: -0.4, y: 0.3 };
+            r2.angVel = -2.0;
+
+            world.objectList.push(c1, c2, c3, c4, r1, r2);
+            return world;
+        }
+
+        let world = createScene();
+        let lastTime = null;
+
+        function drawFloor() {
+            // Floor is at worldY = 1.0, renderY = canvasHeight - 100
+            const floorY = canvas.height - 100;
+            context.strokeStyle = '#2a2a4a';
+            context.lineWidth = 1;
+            context.beginPath();
+            context.moveTo(0, floorY);
+            context.lineTo(canvas.width, floorY);
+            context.stroke();
+        }
+
+        function loop(timestamp) {
+            if (lastTime !== null) {
+                game.deltaTime = Math.min((timestamp - lastTime) / 1000, 0.05);
+            }
+            lastTime = timestamp;
+
+            context.clearRect(0, 0, canvas.width, canvas.height);
+            drawFloor();
+            world.update(game);
+            world.draw(game);
+
+            requestAnimationFrame(loop);
+        }
+
+        requestAnimationFrame(loop);
+
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            world = createScene();
+        });
+    </script>
+</body>
+</html>
