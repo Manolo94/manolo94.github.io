@@ -7,23 +7,29 @@ export class Genome {
     // energyThresholds: [float]        — per slot, realEnergy level that flips conversion direction
     //   above threshold: realEnergy → storedEnergy
     //   below threshold: storedEnergy → realEnergy
-    constructor(connections, heatContributions, conversionRates, energyThresholds) {
+    // pelletOffsets: [{x, y}]          — per slot, position relative to organism center (cell units)
+    constructor(connections, heatContributions, conversionRates, energyThresholds, pelletOffsets) {
         this.connections = connections;
         this.heatContributions = heatContributions;
         this.conversionRates = conversionRates;
         this.energyThresholds = energyThresholds;
+        this.pelletOffsets = pelletOffsets;
     }
 
-    static createRandom(pelletCount, maxHeatContribution, initialEnergy = 500) {
+    static createRandom(pelletCount, maxHeatContribution, initialEnergy = 500, organismSize = 2) {
         const heatContributions = [];
         const conversionRates = [];
         const energyThresholds = [];
+        const pelletOffsets = [];
         const connections = [];
 
         for (let i = 0; i < pelletCount; i++) {
             heatContributions.push((Math.random() * 2 - 1) * maxHeatContribution);
             conversionRates.push(Math.random() * 0.015 + 0.005); // 0.5–2% per tick
             energyThresholds.push(Math.random() * initialEnergy);
+            const angle = Math.random() * 2 * Math.PI;
+            const r = Math.random() * organismSize;
+            pelletOffsets.push({ x: Math.cos(angle) * r, y: Math.sin(angle) * r });
         }
 
         for (let i = 0; i < pelletCount; i++) {
@@ -34,7 +40,7 @@ export class Genome {
             }
         }
 
-        return new Genome(connections, heatContributions, conversionRates, energyThresholds);
+        return new Genome(connections, heatContributions, conversionRates, energyThresholds, pelletOffsets);
     }
 }
 
@@ -66,8 +72,8 @@ export class Organism {
         const alive = this.alivePellets;
         if (alive.length === 0) return;
 
-        // Starvation: all pellets exhausted — release them as free pellets
-        if (alive.every(p => p.realEnergy <= 0)) {
+        // Starvation: any pellet hitting 0 kills the whole organism
+        if (alive.some(p => p.realEnergy <= 0)) {
             this.release();
             return;
         }

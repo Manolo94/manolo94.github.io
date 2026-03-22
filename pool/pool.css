@@ -111,6 +111,19 @@ canvas {
     color: #4ecca3;
 }
 
+.btn-pause {
+    width: 100%;
+    padding: 8px;
+    font-size: 13px;
+    margin-top: 6px;
+}
+
+.btn-pause:disabled {
+    opacity: 0.3;
+    cursor: default;
+    pointer-events: none;
+}
+
 .btn-run {
     width: 100%;
     padding: 8px;

@@ -10,6 +10,7 @@ export class Game {
         this.realFps = -1;
         this.board = new PoolBoard();
         this.started = false;
+        this.paused = false;
         this._intervalId = null;
         this._fpsIntervalId = null;
 
@@ -105,6 +106,7 @@ export class Game {
         var maxHeatContribution = document.getElementById("maxHeatContribTxt").value;
         this.board = new PoolBoard(sideCells, thermalCond, numOrganisms, pelletsPerOrg, organismSize, pelletMass, numHeatSources, initialEnergy, maxHeatContribution);
         this.started = true;
+        this.paused = false;
         this.resetView();
     }
 
@@ -121,8 +123,12 @@ export class Game {
         }, 1000);
     }
 
+    togglePause() {
+        this.paused = !this.paused;
+    }
+
     update() {
-        if (this.started) this.board.update(this);
+        if (this.started && !this.paused) this.board.update(this);
     }
 
     draw() {
@@ -144,14 +150,15 @@ export class Game {
         this.frame++;
         this.frameCount++;
 
-        // FPS overlay
+        // FPS + organism count overlay
         this.context.font = '13px monospace';
         this.context.textAlign = 'right';
         this.context.textBaseline = 'top';
         this.context.fillStyle = 'rgba(0,0,0,0.55)';
-        this.context.fillRect(this.canvas.width - 94, 6, 88, 22);
+        this.context.fillRect(this.canvas.width - 94, 6, 88, 42);
         this.context.fillStyle = '#4ecca3';
         this.context.fillText('FPS: ' + this.realFps, this.canvas.width - 8, 10);
+        this.context.fillText('Org: ' + this.board.organisms.length, this.canvas.width - 8, 28);
 
         if (this._zoomDisplay) this._zoomDisplay.textContent = this.zoom.toFixed(1) + '×';
 

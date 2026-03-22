@@ -2,6 +2,7 @@ import { Organism, Genome } from './organism.js';
 
 export const SIMULATION_SIZE = 500;
 export const PELLET_SIZE = 2;
+const EXCHANGE_COOLDOWN = 30; // ticks between energy exchanges on contact
 
 // Directions (0 - up, 1 - left, 2 - down, 3 - right)
 export var DIRECTIONS = [{ x: 0, y: -1 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 0 }];
@@ -23,6 +24,7 @@ export class Pellet {
         this.storedEnergy = 0;
         this.conversionRate = conversionRate;
         this.energyThreshold = energyThreshold;
+        this.exchangeCooldown = 0;
         this.organismId = null;
     }
     static getSqrdDistance(p1, p2) {
@@ -67,16 +69,14 @@ export class PoolBoard {
         this.PelletList = [];
         this.organisms = [];
         for (var o = 0; o < this.numOrganisms; o++) {
-            const genome = Genome.createRandom(this.pelletsPerOrg, this.maxHeatContribution, this.initialEnergy);
+            const genome = Genome.createRandom(this.pelletsPerOrg, this.maxHeatContribution, this.initialEnergy, this.organismSize);
             const slots = [];
             const cx = Math.random() * sideCells;
             const cy = Math.random() * sideCells;
             for (var p = 0; p < this.pelletsPerOrg; p++) {
-                const angle = Math.random() * 2 * Math.PI;
-                const r = Math.random() * this.organismSize;
                 const pellet = new Pellet(
-                    Math.min(sideCells - 0.001, Math.max(0, cx + Math.cos(angle) * r)),
-                    Math.min(sideCells - 0.001, Math.max(0, cy + Math.sin(angle) * r)),
+                    Math.min(sideCells - 0.001, Math.max(0, cx + genome.pelletOffsets[p].x)),
+                    Math.min(sideCells - 0.001, Math.max(0, cy + genome.pelletOffsets[p].y)),
                     PELLET_SIZE,
                     this.pelletMass,
                     genome.heatContributions[p],
@@ -214,6 +214,7 @@ export class PoolBoard {
         // --- 5. Build cell pellet map + calculate individual velocities ---
         var pelletVel = [];
         for (var p = 0; p < this.PelletList.length; p++) {
+            if (this.PelletList[p].exchangeCooldown > 0) this.PelletList[p].exchangeCooldown--;
             var pellet = this.PelletList[p];
             var cellX = Math.floor(pellet.x);
             var cellY = Math.floor(pellet.y);
@@ -277,17 +278,33 @@ export class PoolBoard {
                     );
 
                     if (distSq < collisionThreshSq) {
-                        if (pellet.storedEnergy >= pelletQ.storedEnergy) {
+                        // Free vs free: no interaction
+                        if (pellet.organismId === null && pelletQ.organismId === null) continue;
+
+                        // Organism hits free pellet: absorb all its stored energy, free pellet dies
+                        if (pellet.organismId === null) { toRemove.add(p); break; }
+                        if (pelletQ.organismId === null) {
                             pellet.realEnergy += pelletQ.storedEnergy;
                             toRemove.add(qIdx);
-                        } else {
-                            pelletQ.realEnergy += pellet.storedEnergy;
-                            toRemove.add(p);
-                            break; // pellet p is eaten — stop checking its neighbours
+                            continue;
+                        }
+
+                        // Both in organisms (different): mutual exchange with cooldown
+                        if (pellet.exchangeCooldown === 0 && pelletQ.exchangeCooldown === 0) {
+                            const takenByA = Math.min(pellet.realEnergy, pelletQ.storedEnergy);
+                            const takenByB = Math.min(pelletQ.realEnergy, pellet.storedEnergy);
+                            pellet.realEnergy   += takenByA;
+                            pellet.storedEnergy  = Math.max(0, pellet.storedEnergy - takenByB);
+                            pelletQ.realEnergy  += takenByB;
+                            pelletQ.storedEnergy = Math.max(0, pelletQ.storedEnergy - takenByA);
+                            pellet.exchangeCooldown  = EXCHANGE_COOLDOWN;
+                            pelletQ.exchangeCooldown = EXCHANGE_COOLDOWN;
+
+                            if (pelletQ.realEnergy <= 0) toRemove.add(qIdx);
+                            if (pellet.realEnergy  <= 0) { toRemove.add(p); break; }
                         }
                     }
                 }
-                if (toRemove.has(p)) break;
             }
         }
 
@@ -314,12 +331,12 @@ export class PoolBoard {
             }
         }
 
-        // --- 9. Remove eaten pellets ---
+        // --- 9. Remove eaten pellets + kill their organism ---
         for (const idx of toRemove) {
             const dead = this.PelletList[idx];
             if (dead.organismId !== null) {
                 const org = this.organisms.find(o => o.id === dead.organismId);
-                if (org) org.removePellet(dead);
+                if (org) org.release(); // losing any pellet kills the whole organism
             }
         }
         // Remove in descending order to keep earlier indices valid during splice
@@ -329,7 +346,7 @@ export class PoolBoard {
         // --- 10. Release starved organisms + prune dead ones ---
         for (const org of this.organisms) {
             const alive = org.alivePellets;
-            if (alive.length > 0 && alive.every(ap => ap.realEnergy <= 0)) {
+            if (alive.length > 0 && alive.some(ap => ap.realEnergy <= 0)) {
                 org.release(); // pellets drift free, keeping their storedEnergy
             }
         }

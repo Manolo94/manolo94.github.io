@@ -53,6 +53,7 @@
                 <input id="maxHeatContribTxt" type="text" value="0.3">
             </div>
             <button class="btn btn-run" id="runBtn">Run</button>
+            <button class="btn btn-pause" id="pauseBtn" disabled>Pause</button>
         </div>
 
         <div class="section">
@@ -73,7 +74,17 @@
         const game = new Game('poolCanvas');
         game.run();
 
-        document.getElementById('runBtn').addEventListener('click', () => game.initialize());
+        document.getElementById('runBtn').addEventListener('click', () => {
+            game.initialize();
+            document.getElementById('runBtn').textContent = 'Restart';
+            const pauseBtn = document.getElementById('pauseBtn');
+            pauseBtn.disabled = false;
+            pauseBtn.textContent = 'Pause';
+        });
+        document.getElementById('pauseBtn').addEventListener('click', () => {
+            game.togglePause();
+            document.getElementById('pauseBtn').textContent = game.paused ? 'Resume' : 'Pause';
+        });
         document.getElementById('zoomInBtn').addEventListener('click', () => game.setZoom(game.zoom * 1.25));
         document.getElementById('zoomOutBtn').addEventListener('click', () => game.setZoom(game.zoom / 1.25));
         document.getElementById('resetViewBtn').addEventListener('click', () => game.resetView());
