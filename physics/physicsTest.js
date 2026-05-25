@@ -271,6 +271,96 @@ class Physics {
             this.applyInstantAcceleration(pObject, scalarMultiply(GRAVITY, game.deltaTime));
             pObject.update(game, this);
         });
+
+        // Circle-Rectangle collisions
+        const circles = this.objectList.filter(o => o instanceof Circle);
+        const rects   = this.objectList.filter(o => o instanceof Rectangle);
+        circles.forEach(c => rects.forEach(r => this.resolveCircleRect(c, r)));
+    }
+    resolveCircleRect(circle, rect) {
+        const RESTITUTION = 0.5;
+
+        // Circle center in rectangle's local space (rect.width/height are half-extents)
+        const localCircle = rect.toLocalCoords(circle.pos);
+
+        // Closest point on the local AABB to the circle center
+        const closestX = Math.max(-rect.width,  Math.min(rect.width,  localCircle.x));
+        const closestY = Math.max(-rect.height, Math.min(rect.height, localCircle.y));
+
+        const inside = (closestX === localCircle.x && closestY === localCircle.y);
+
+        const dxLocal = localCircle.x - closestX;
+        const dyLocal = localCircle.y - closestY;
+        const distSq  = dxLocal * dxLocal + dyLocal * dyLocal;
+
+        if (!inside && distSq >= circle.radius * circle.radius) return; // no overlap
+
+        // --- Collision normal and penetration depth (in local space) ---
+        let localNormal, penetration;
+
+        if (inside) {
+            // Push out along the axis of minimum overlap
+            const overlapX = rect.width  - Math.abs(localCircle.x);
+            const overlapY = rect.height - Math.abs(localCircle.y);
+            if (overlapX < overlapY) {
+                localNormal = new Vector2D(localCircle.x >= 0 ? 1 : -1, 0);
+                penetration = overlapX + circle.radius;
+            } else {
+                localNormal = new Vector2D(0, localCircle.y >= 0 ? 1 : -1);
+                penetration = overlapY + circle.radius;
+            }
+        } else {
+            const dist = Math.sqrt(distSq);
+            localNormal = dist < 1e-10
+                ? new Vector2D(1, 0)
+                : new Vector2D(dxLocal / dist, dyLocal / dist);
+            penetration = circle.radius - dist;
+        }
+
+        // Normal in world space (points from rect surface toward circle)
+        const normal = rotateVector(localNormal, rect.rotation);
+
+        // Contact point in world space
+        const contactWorld = rect.toWorldCoords(new Vector2D(closestX, closestY));
+
+        // Vectors from each body's COM to the contact point
+        const rC = sumVectors(contactWorld, scalarMultiply(circle.pos, -1));
+        const rR = sumVectors(contactWorld, scalarMultiply(rect.pos,   -1));
+
+        // Velocity of the contact point on each body: v + ω × r  (2D: ω×r = (-ω*ry, ω*rx))
+        const vCircleContact = sumVectors(circle.vel, new Vector2D(-circle.angVel * rC.y,  circle.angVel * rC.x));
+        const vRectContact   = sumVectors(rect.vel,   new Vector2D(-rect.angVel   * rR.y,  rect.angVel   * rR.x));
+
+        const vRel  = sumVectors(vCircleContact, scalarMultiply(vRectContact, -1));
+        const vRelN = dotProduct(vRel, normal);
+
+        if (vRelN > 0) return; // already separating
+
+        // Impulse scalar: j = -(1+e) * vRelN / (1/mA + 1/mB + (rA×n)²/IA + (rB×n)²/IB)
+        const rCN = rC.x * normal.y - rC.y * normal.x; // 2D cross: r × n
+        const rRN = rR.x * normal.y - rR.y * normal.x;
+
+        const invMassSum = 1 / circle.mass + 1 / rect.mass
+                         + (rCN * rCN) / circle.I
+                         + (rRN * rRN) / rect.I;
+
+        const j       = -(1 + RESTITUTION) * vRelN / invMassSum;
+        const impulse = scalarMultiply(normal, j);
+
+        // Linear impulse
+        circle.vel = sumVectors(circle.vel, scalarMultiply(impulse,  1 / circle.mass));
+        rect.vel   = sumVectors(rect.vel,   scalarMultiply(impulse, -1 / rect.mass));
+
+        // Angular impulse: Δω = (r × impulse) / I
+        circle.angVel += (rC.x * impulse.y - rC.y * impulse.x) / circle.I;
+        rect.angVel   -= (rR.x * impulse.y - rR.y * impulse.x) / rect.I;
+
+        // Positional correction to prevent sinking (with a small slop tolerance)
+        const slop       = 0.01;
+        const correction = Math.max(penetration - slop, 0) * 0.8;
+        const totalMass  = circle.mass + rect.mass;
+        circle.pos = sumVectors(circle.pos, scalarMultiply(normal,  correction * rect.mass   / totalMass));
+        rect.pos   = sumVectors(rect.pos,   scalarMultiply(normal, -correction * circle.mass / totalMass));
     }
     draw(game) {
         //game.setContextToColor({ r: 1.0, g: 1.0, b: 1.0 });
