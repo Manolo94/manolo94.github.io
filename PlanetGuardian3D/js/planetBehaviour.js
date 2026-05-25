@@ -325,20 +325,19 @@ function collideAsteroid( asteroid )
         scene.remove(asteroid.asteroid);
         asteroid.remove();
         
-        $("#planetExplosion").get(0).play();
-        
+        var explosionAudio = document.getElementById("planetExplosion");
+        explosionAudio.volume = 0.2;
+        explosionAudio.play();
+
         var finalP = lavaSphere.position.clone();
-        
+
         scene.remove(planetSphere);
         scene.remove(defenseSphere);
         scene.remove(lavaSphere);
-        
+
         gameOver = true;
-        
-        $('#myLoseModal').modal({
-            backdrop: 'static',
-            keyboard: true
-        }).show();
+
+        openModal('myLoseModal');
         
         parts.push(new ExplodeAnimation(finalP.x, finalP.y));
         
@@ -363,12 +362,10 @@ function collideAsteroid( asteroid )
 //        var clone = asteroid.asteroid.position.clone();
 //        createExplosion(clone.x,clone.y,clone.z);
         
-        if( $("#meteorImpact1").get(0).paused )
-            $("#meteorImpact1").get(0).play();
-        else if( $("#meteorImpact2").get(0).paused )
-            $("#meteorImpact2").get(0).play();
-        else if( $("#meteorImpact3").get(0).paused )
-            $("#meteorImpact3").get(0).play();
+        var mi1 = document.getElementById("meteorImpact1"), mi2 = document.getElementById("meteorImpact2"), mi3 = document.getElementById("meteorImpact3");
+        if( mi1.paused ) mi1.play();
+        else if( mi2.paused ) mi2.play();
+        else if( mi3.paused ) mi3.play();
         
         extrudeFaceInsideSphere( intersects[0].face.a, planetSphere.geometry, DENT_DEPTH, planetSphere.position );
         extrudeFaceInsideSphere( intersects[0].face.b, planetSphere.geometry, DENT_DEPTH, planetSphere.position );
@@ -397,14 +394,12 @@ function collideAsteroid( asteroid )
         if( shields[index].shieldType != -1 )
         {
             score++;
-            stardustScoreElement.text(score);
-            
-            if( $("#shieldBreaking1").get(0).paused )
-                $("#shieldBreaking1").get(0).play();
-            else if( $("#shieldBreaking2").get(0).paused )
-                $("#shieldBreaking2").get(0).play();
-            else if( $("#shieldBreaking3").get(0).paused )
-                $("#shieldBreaking3").get(0).play();
+            stardustScoreElement.textContent = score;
+
+            var sb1 = document.getElementById("shieldBreaking1"), sb2 = document.getElementById("shieldBreaking2"), sb3 = document.getElementById("shieldBreaking3");
+            if( sb1.paused ) sb1.play();
+            else if( sb2.paused ) sb2.play();
+            else if( sb3.paused ) sb3.play();
 
             // If the shield is the same color or titanium, reduce the life once
             if( shields[index].shieldType == asteroid.type || ( shields[index].shieldType == 2 && asteroid.type != 2 ) ) 
@@ -425,6 +420,7 @@ function collideAsteroid( asteroid )
             
             scene.remove(asteroid.asteroid);
             asteroid.remove();
+            returnAsteroidToPool(asteroid);
 
             // Remove the asteroid from the array of asteroids
             var rindex = asteroids.indexOf(asteroid);

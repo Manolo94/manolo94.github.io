@@ -3,100 +3,72 @@ var planetSelected;
 var difficultySelected;
 var stardustScoreElement;
 
-$(document).ready(function(){
+document.addEventListener('DOMContentLoaded', function() {
+    stardustScoreElement = document.getElementById('scoreValue');
+    var playButton = document.getElementById('playButton');
 
-    stardustScoreElement = $('#scoreValue');
+    function updatePlayButton() {
+        playButton.disabled = (planetSelected === undefined || difficultySelected === undefined);
+    }
 
-    $('a').tooltip();
-
-    $(".shield").on('click', function() {
-     var height = $(this).css('height');
-     var width = $(this).css('width');
-
-     if(height === '50px'){
-        $(this).css('height', '70');
-        $(this).css('width', '65');
-        currentShieldSelected = $(this).attr('id');
-
-        $('.shield').each(function(idx, el){
-            if($(this).attr('id') !== currentShieldSelected){
-                $(this).css('height', '50');
-                $(this).css('width', '45');
-            }
-        });   
-
-     } else{
-        $(this).css('height', '50');
-        $(this).css('width', '45');
-
-        currentShieldSelected = undefined;
-     }                 
-    });
-
-    $(".planet").on('click', function() {
-
-
-         var height = $(this).css('height');
-         var width = $(this).css('width');
-
-         if(height === '50px'){
-            $(this).css('height', '70');
-            $(this).css('width', '65');
-            planetSelected = $(this).attr('id');
-
-            $('.planet').each(function(idx, el){
-                if($(this).attr('id') !== planetSelected){
-                    $(this).css('height', '50');
-                    $(this).css('width', '45');
+    // Used for HUD shield icons — toggles size to show active selection
+    function setupSizeToggle(cls, onSelect) {
+        document.querySelectorAll('.' + cls).forEach(function(el) {
+            el.addEventListener('click', function(e) {
+                e.preventDefault();
+                var selected = window.getComputedStyle(el).height === '70px';
+                document.querySelectorAll('.' + cls).forEach(function(other) {
+                    other.style.height = '50px';
+                    other.style.width = '';
+                });
+                if (!selected) {
+                    el.style.height = '70px';
+                    el.style.width = '65px';
+                    onSelect(el.id);
+                } else {
+                    onSelect(undefined);
                 }
-            });   
+            });
+        });
+    }
 
-         } else{
-            $(this).css('height', '50');
-            $(this).css('width', '45');
-
-            planetSelected = undefined;
-         }       
-
-    });
-
-    $(".difficulty").on('click', function() {
-
-
-         var height = $(this).css('height');
-         var width = $(this).css('width');
-
-         if(height === '50px'){
-            $(this).css('height', '70');
-            $(this).css('width', '65');
-            difficultySelected = $(this).attr('id');
-
-            $('.difficulty').each(function(idx, el){
-                if($(this).attr('id') !== difficultySelected){
-                    $(this).css('height', '50');
-                    $(this).css('width', '45');
+    // Used for planet/difficulty — highlights the thumbnail without resizing
+    function setupHighlightToggle(cls, onSelect) {
+        document.querySelectorAll('img.' + cls).forEach(function(img) {
+            var anchor = img.closest('.thumbnail');
+            if (!anchor) return;
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                var selected = anchor.classList.contains('selected');
+                document.querySelectorAll('img.' + cls).forEach(function(other) {
+                    var a = other.closest('.thumbnail');
+                    if (a) a.classList.remove('selected');
+                });
+                if (!selected) {
+                    anchor.classList.add('selected');
+                    onSelect(img.id);
+                } else {
+                    onSelect(undefined);
                 }
-            });   
+                updatePlayButton();
+            });
+        });
+    }
 
-         } else{
-            $(this).css('height', '50');
-            $(this).css('width', '45');
+    setupSizeToggle('shield', function(id) { currentShieldSelected = id; });
+    setupHighlightToggle('planet', function(id) { planetSelected = id; });
+    setupHighlightToggle('difficulty', function(id) { difficultySelected = id; });
 
-            difficultySelected = undefined;
-         }       
-
-    });
-
-
-    $("#menuButton").on('click', function(){
+    document.getElementById('menuButton').addEventListener('click', function() {
         location.reload();
     });
 
-    $("#playButton").on('click', function(){
-        if(planetSelected === undefined || difficultySelected === undefined){
+    playButton.addEventListener('click', function() {
+        if (planetSelected === undefined || difficultySelected === undefined) {
             location.reload();
-        }else{
+        } else {
+            closeModal('myModal');
             init();
-        }                
+        }
     });
 });

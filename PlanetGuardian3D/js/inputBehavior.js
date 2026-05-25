@@ -230,7 +230,7 @@ function onDocumentMouseUp( event )
                     shields[index].shieldType = shield.type;
                     shields[index].life = SHIELD_LIFE[shield.type];
                     score -= SHIELD_COST[shield.type];
-                    stardustScoreElement.text(score);
+                    stardustScoreElement.textContent = score;
 
                     // Rendering
                     changeDefenseAppearance( index, shield.material ); 
