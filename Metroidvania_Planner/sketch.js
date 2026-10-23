@@ -289,13 +289,156 @@ function clearWorldCancel()
   document.getElementById("ClearWorldConfirmSpan").hidden = true;
 }
 
+// ---------------------------------------------------------------------------------------------
+// Calculate path, run in the background a slice per frame (PathSearch is in grid_solver.js)
+
+let pathSearch = null;
+let pathSearchSignature = "";
+let pathLastShown = 0;
+const PATH_SLICE_MS = 10;       // search time per frame
+const PATH_REFRESH_MS = 250;    // how often the best partial route and the status are redrawn
+
+// Whether each objective must be collected by the route (default: yes). Kept per Objective object.
+const routeRequired = new Map();
+function isRouteRequired(obj) { return routeRequired.has(obj) ? routeRequired.get(obj) : true; }
+
+function routeOptions()
+{
+  let all = Objective.allObjectives;
+  return {
+    have: Uint8Array.from(all, (o) => getObjectiveMode(o) == "have" ? 1 : 0),
+    never: Uint8Array.from(all, (o) => getObjectiveMode(o) == "never" ? 1 : 0),
+    required: Uint8Array.from(all, (o) => isRouteRequired(o) ? 1 : 0)
+  };
+}
+
 function calculatePath()
 {
-  grid.setPathFromPathStack(GridSolver.GetPathFromTo(grid.startPosition, grid.endPosition, grid))
-  
+  if(pathSearch != null && pathSearch.isActive) pathSearch.stop();
+  Objective.updateAllObjectives();
+  pathSearch = new PathSearch(grid, grid.startPosition, grid.endPosition, routeOptions());
+  pathSearchSignature = currentWorldSignature();
+  pathLastShown = 0;
+  grid.setPathFromPathStack(null);
+  grid.pathPartial = false;
+  showPathProgress(true);
+}
+
+function togglePathPause()
+{
+  if(pathSearch == null) return;
+  if(pathSearch.status == "paused") pathSearch.status = "running";
+  else pathSearch.pause();
+  showPathProgress(true);
+}
+
+function stopPathSearch()
+{
+  if(pathSearch == null) return;
+  pathSearch.stop();
+  showPathProgress(true);
+}
+
+// Called every frame: run a slice of the search and refresh what's shown a few times a second
+function runPathSearchSlice()
+{
+  if(pathSearch == null) return;
+  if(pathSearch.isActive && millis() - pathLastShown > PATH_REFRESH_MS && currentWorldSignature() !== pathSearchSignature)
+  {
+    pathSearch.stop();
+    pathSearch.message = "Stopped: the world changed during the search. Calculate again for the new world.";
+    showPathProgress(true);
+    return;
+  }
+  if(pathSearch.status == "running" || pathSearch.status == "ready")
+  {
+    pathSearch.step(PATH_SLICE_MS);
+    showPathProgress(!pathSearch.isActive);
+  }
+}
+
+// Update the path on the map and the status text. force skips the refresh interval.
+function showPathProgress(force)
+{
+  if(!force && millis() - pathLastShown < PATH_REFRESH_MS) return;
+  pathLastShown = millis();
+  let s = pathSearch;
+  let controls = document.querySelector("#PathRunControls");
+  let status = document.querySelector("#PathStatus");
   let message = document.querySelector("#PathMessage");
-  message.textContent = GridSolver.lastMessage;
-  message.hidden = GridSolver.lastMessage == "";
+  let calcButton = document.querySelector("#CalculatePathBtn");
+  
+  let active = s != null && s.isActive;
+  controls.hidden = !active;
+  calcButton.hidden = active;
+  document.querySelector("#PathPauseBtn").textContent = s != null && s.status == "paused" ? "Continue" : "Pause";
+  
+  message.hidden = !(s != null && s.status == "failed");
+  message.textContent = s != null && s.status == "failed" ? s.message : "";
+  
+  status.replaceChildren();
+  status.hidden = s == null || s.status == "failed";
+  if(status.hidden) { if(s != null && s.status == "failed") grid.setPathFromPathStack(null); return; }
+  
+  let line = (...parts) => { let div = document.createElement("div"); div.append(...parts); status.append(div); return div; };
+  let strong = (text) => { let b = document.createElement("strong"); b.textContent = text; return b; };
+  let seconds = (s.elapsedMs / 1000).toFixed(1) + " s";
+  let states = s.statesSearched.toLocaleString() + " states";
+  
+  if(s.status == "found")
+  {
+    grid.setPathFromPathStack(s.routeStack());
+    grid.pathPartial = false;
+    line(strong("Path found: " + s.bestDepth + " steps"), " (" + states + ", " + seconds + ")");
+  }
+  else
+  {
+    grid.setPathFromPathStack(s.routeStack());
+    grid.pathPartial = true;
+    let state = s.status == "paused" ? "Paused" : s.status == "stopped" ? "Stopped" : "Searching";
+    line(strong(state), ": " + states + ", " + seconds);
+    if(s.status == "stopped" && s.message) line(s.message);
+    let left = s.bestDistanceToEnd;
+    line("Best so far: " + s.bestRequiredCollected + " of " + s.requiredCount + " required, " +
+         (left == 0 ? "at the end" : left + " step" + (left == 1 ? "" : "s") + " from the end"));
+  }
+  
+  // Objectives the route picks up, in order: the required ones, and the others that open a gate
+  //  (objectives that are only passed on the way are left out)
+  let picked = s.routeObjectives();
+  let required = picked.filter((o) => s.required[o]);
+  let forGates = picked.filter((o) => !s.required[o] && s.bitOf[o] >= 0);
+  if(required.length > 0) line("Collects ", objectiveList(required, ""));
+  if(forGates.length > 0) line("Also picks up for gates ", objectiveList(forGates, ""));
+}
+
+// The "Must collect" line in the Route section
+function refreshRouteNeeds()
+{
+  let all = Objective.allObjectives;
+  let required = all.filter((o) => isRouteRequired(o) && getObjectiveMode(o) != "have");
+  let p = document.querySelector("#RouteNeeds");
+  let text;
+  if(all.length == 0) text = "Route: reach the end.";
+  else if(required.length == all.length) text = "Must collect every objective before the end. ";
+  else if(required.length == 0) text = "Must only reach the end. ";
+  else text = "Must collect " + required.length + " of " + all.length + " objectives before the end. ";
+  if(p.dataset.text === text) return;
+  p.dataset.text = text;
+  p.replaceChildren(text);
+  if(all.length > 0)
+  {
+    let choose = document.createElement("button");
+    choose.className = "link";
+    choose.textContent = "Choose";
+    choose.onclick = () =>
+    {
+      setWorldCheck(true);
+      let table = document.querySelector("#CheckPanel table");
+      if(table) table.scrollIntoView({ block: "start", behavior: "smooth" });
+    };
+    p.append(choose);
+  }
 }
 
 function isCloseEnough(value1, value2)
@@ -319,6 +462,8 @@ function draw() {
   
   refreshWorldCheck();
   drawWorldCheckOverlay();
+  runPathSearchSlice();
+  if(frameCount % 15 == 0) refreshRouteNeeds();
   
   grid.drawStartAndEndPositions();
   
@@ -585,15 +730,24 @@ function renderCheckPanel(r)
   
   if(r.objectives.length == 0) { panel.append(el("p", null, "No objectives yet.")); return; }
   
-  let intro = el("p", null, "Auto: picked up when reachable. Have: in hand from the start. Never: ignored. ");
+  let intro = el("p", null, "Auto: picked up when reachable. Have: in hand from the start. Never: ignored. " +
+                             "Route: must be collected by Calculate path. ");
   let reset = el("button", null, "Reset toggles");
-  reset.onclick = () => { objectiveModes.clear(); runWorldCheck(); };
+  reset.onclick = () => { objectiveModes.clear(); routeRequired.clear(); runWorldCheck(); refreshRouteNeeds(); };
   intro.append(reset);
+  let setAllRoute = (value, label) =>
+  {
+    let b = el("button", null, label);
+    b.onclick = () => { Objective.allObjectives.forEach((o) => routeRequired.set(o, value)); runWorldCheck(); refreshRouteNeeds(); };
+    intro.append(b);
+  };
+  setAllRoute(true, "Route: all");
+  setAllRoute(false, "Route: none");
   panel.append(intro);
   
   let table = el("table");
   let head = el("tr");
-  ["", "Status", "Needs", "Mode"].forEach((h) => head.append(el("th", null, h)));
+  ["", "Status", "Needs", "Mode", "Route"].forEach((h) => head.append(el("th", h == "Route" ? "route-col" : null, h)));
   table.append(head);
   
   let statusText = { collected: "collected", have: "in hand", never: "ignored", unreachable: "can't be collected" };
@@ -625,6 +779,15 @@ function renderCheckPanel(r)
     });
     modeCell.append(toggle);
     row.append(modeCell);
+    
+    let routeCell = el("td", "route-col");
+    let box = el("input");
+    box.type = "checkbox";
+    box.checked = isRouteRequired(obj);
+    box.setAttribute("aria-label", "Route must collect objective " + o.index);
+    box.onchange = () => { routeRequired.set(obj, box.checked); refreshRouteNeeds(); };
+    routeCell.append(box);
+    row.append(routeCell);
     table.append(row);
   });
   panel.append(table);

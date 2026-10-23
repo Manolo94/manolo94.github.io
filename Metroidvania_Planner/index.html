@@ -82,7 +82,13 @@
             <label class="toggle"><input type="checkbox" id="SetStartPositionCheck"/><span><i class="marker start"></i>Set start</span></label>
             <label class="toggle"><input type="checkbox" id="SetEndPositionCheck"/><span><i class="marker end"></i>Set end</span></label>
           </div>
+          <p id="RouteNeeds" class="hint"></p>
           <button onclick="calculatePath()" id="CalculatePathBtn" class="wide">Calculate path</button>
+          <div id="PathRunControls" class="pair run" hidden>
+            <button onclick="togglePathPause()" id="PathPauseBtn">Pause</button>
+            <button onclick="stopPathSearch()" id="PathStopBtn" class="danger">Stop</button>
+          </div>
+          <div id="PathStatus" class="path-status" aria-live="polite" hidden></div>
           <p id="PathMessage" class="error" hidden></p>
           <button onclick="toggleWorldCheck()" id="CheckWorldBtn" class="wide">Check world</button>
           <p class="hint">Check world shades the cells that can't be reached and lists what each objective needs.</p>
