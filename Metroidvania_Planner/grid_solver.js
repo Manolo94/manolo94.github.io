@@ -53,7 +53,7 @@ class GridSolver
       }
       if(cells.length > GridSolver.MAX_STATES)
         return GridSolver.fail("the search stopped after " + GridSolver.MAX_STATES.toLocaleString() +
-                               " states (too many possible orders). Check World still works for this map");
+                               " states (too many possible orders). Check world still works for this map");
     }
     if(found < 0) return GridSolver.fail("no route collects every objective and then reaches the end");
 

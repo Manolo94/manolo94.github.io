@@ -225,11 +225,9 @@ class WorldCheck
     r.warnings = [];
     if(g.start < 0) r.warnings.push("The start position is not inside a level.");
     if(g.end < 0) r.warnings.push("The end position is not inside a level.");
-    else if(!r.endReachable) r.warnings.push("The end position cannot be reached.");
-    r.objectives.forEach((o) =>
-    {
-      if(o.status == "unreachable") r.warnings.push("Objective #" + o.index + " can never be collected.");
-    });
+    // An unreachable end is shown in the panel's summary line, so it is not repeated as a warning
+    // Objectives that can never be collected are listed together (the panel shows them as dots)
+    r.uncollectable = r.objectives.filter((o) => o.status == "unreachable").map((o) => o.index);
     for(let k = 0; k < n; k++)
     {
       if(gatesOf[k].length == 0 || !r.without[k] || have[k]) continue;

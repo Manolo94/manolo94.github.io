@@ -1,99 +1,99 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.1/p5.js"></script>
-    <!--<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.1/addons/p5.sound.min.js"></script>-->
-    <link rel="stylesheet" type="text/css" href="style.css">
     <meta charset="utf-8" />
-
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Metroidvania Planner</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.1/p5.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="style.css">
   </head>
   <body>
-    <main>
-      <div>
-        <button onclick="addLevel()" id="AddLevelBtn">Add Level</button>
-        <button onclick="clearWorldFirstTry()" id="ClearWorldBtn">Clear World</button>
-        <span id="ClearWorldConfirmSpan" hidden>
-          Are you sure?
-          <button onclick="clearWorldConfirm()">Confirm</button>
-          <button onclick="clearWorldCancel()">Cancel</button>
-        </span>
-        <button onclick="saveWorld()" id="SaveWorldBtn">Save World</button>
-        <button onclick="calculatePath()" id="CalculatePathBtn">Calculate Path</button>
-        <span id="PathMessage" style="color: firebrick" hidden></span>
-        <span id="SavedMessage" hidden>
-          World Saved!
-        </span>
-      </div>
-      <div>
-        <button onclick="downloadWorld()" id="DownloadWorldBtn">Download World</button>
-        <button onclick="document.querySelector('#UploadWorldInput').click()" id="UploadWorldBtn">Upload World</button>
+    <header id="TopBar">
+      <h1>Metroidvania Planner</h1>
+      <div class="actions">
+        <button onclick="addLevel()" id="AddLevelBtn" class="primary">Add level</button>
+        <button onclick="saveWorld()" id="SaveWorldBtn">Save</button>
+        <button onclick="downloadWorld()" id="DownloadWorldBtn">Download</button>
+        <button onclick="document.querySelector('#UploadWorldInput').click()" id="UploadWorldBtn">Upload</button>
         <input type="file" id="UploadWorldInput" accept=".json,application/json" hidden/>
-        <span id="UploadWorldConfirmSpan" hidden>
-          Replace the current world with <span id="UploadWorldFileName"></span>?
-          <button onclick="uploadWorldConfirm()">Confirm</button>
+        <button onclick="clearWorldFirstTry()" id="ClearWorldBtn" class="danger">Clear world</button>
+      </div>
+      <div class="status" aria-live="polite">
+        <span id="ClearWorldConfirmSpan" class="confirm" hidden>
+          Delete every level?
+          <button onclick="clearWorldConfirm()" class="danger">Clear world</button>
+          <button onclick="clearWorldCancel()">Keep it</button>
+        </span>
+        <span id="UploadWorldConfirmSpan" class="confirm" hidden>
+          Replace this world with <span id="UploadWorldFileName"></span>?
+          <button onclick="uploadWorldConfirm()" class="primary">Replace</button>
           <button onclick="uploadWorldCancel()">Cancel</button>
         </span>
         <span id="WorldFileMessage" hidden></span>
+        <span id="SavedMessage" hidden>Saved</span>
       </div>
-      <div>
-        <input type="radio" id="RegularModeRadioBtn" name="editorMode" checked />
-        <label for="RegularModeRadioBtn">Move and Size Levels</label>
-        <input type="radio" id="AddDoorsRadioBtn" name="editorMode"/>
-        <label for="AddDoorsRadioBtn">Add Doors</label>
-        <input type="radio" id="AddWallsRadioBtn" name="editorMode"/>
-        <label for="AddWallsRadioBtn">Add Walls</label>
-        <input type="radio" id="AddObjectivesRadioBtn" name="editorMode"/>
-        <label for="AddObjectivesRadioBtn">Add Objectives</label>
-        <input type="radio" id="RemoveObjectivesRadioBtn" name="editorMode"/>
-        <label for="RemoveObjectivesRadioBtn">Remove Objectives</label>
-      </div>
-      <div>
-        Note: Objectives can only be placed inside levels
-      </div>
-      <div>
-        <input type="radio" id="AddObstacleRadioBtn" name="editorMode" />
-        <label for="AddObstacleRadioBtn">Add Obstacles</label>
-        <label for="SelectedObjectiveTxt">unlocked with Objective: </label>
-        <input type="text" id="SelectedObjectiveTxt" name="selectedObjective" maxlength="2" size="3" readonly/>
-        <input type="radio" id="RemoveObstacleRadioBtn" name="editorMode" />
-        <label for="RemoveObstacleRadioBtn">Remove Obstacles</label>
-      </div>
-      <div>
-        Note: Click which objective unlocks the obstacles before adding the obstacles
-      </div>
-      <div>
-        Selected level:
-        <label for="LevelIdTxt">id</label>
-        <input type="text" id="LevelIdTxt" size="16" spellcheck="false" disabled/>
-        <label for="LevelNameTxt">name</label>
-        <input type="text" id="LevelNameTxt" size="28" disabled/>
-        <label for="LevelColorInput">color</label>
-        <input type="color" id="LevelColorInput" value="#e05a4f" disabled/>
-        <span id="LevelIdError" style="color: firebrick" hidden></span>
-      </div>
-      <div>
-        Note: Click a level to select it. Ids are saved with the map so other tools can refer to a level; keep an id stable once something depends on it.
-      </div>
-      <div>
-        <button onclick="toggleWorldCheck()" id="CheckWorldBtn">Check World</button>
-        <input type="radio" id="InspectRadioBtn" name="editorMode"/>
-        <label for="InspectRadioBtn">Inspect Cells</label>
-      </div>
-      <div>
-        Note: Check World shades the cells that can't be reached and lists what each objective needs. In Inspect Cells mode, click a cell to see what it needs.
-      </div>
-      <div>
-        <input type="checkbox" id="SetStartPositionCheck"/>
-        <label for="SetStartPositionCheck">Set Start Position</label>
-        <input type="checkbox" id="SetEndPositionCheck"/>
-        <label for="SetEndPositionCheck">Set End Position</label>
-      </div>
-    </main>
+    </header>
+
     <div id="Workspace">
+      <nav id="ToolRail" aria-label="Tools">
+        <section>
+          <h2>Tool</h2>
+          <div class="tools" role="radiogroup">
+            <label class="tool"><input type="radio" id="RegularModeRadioBtn" name="editorMode" checked /><span>Move and resize</span><kbd>1</kbd></label>
+            <label class="tool"><input type="radio" id="AddDoorsRadioBtn" name="editorMode"/><span>Open doors</span><kbd>2</kbd></label>
+            <label class="tool"><input type="radio" id="AddWallsRadioBtn" name="editorMode"/><span>Close doors</span><kbd>3</kbd></label>
+            <label class="tool"><input type="radio" id="AddObjectivesRadioBtn" name="editorMode"/><span>Add objectives</span><kbd>4</kbd></label>
+            <label class="tool"><input type="radio" id="RemoveObjectivesRadioBtn" name="editorMode"/><span>Remove objectives</span><kbd>5</kbd></label>
+            <label class="tool"><input type="radio" id="AddObstacleRadioBtn" name="editorMode" /><span>Add obstacles</span><kbd>6</kbd></label>
+            <label class="tool"><input type="radio" id="RemoveObstacleRadioBtn" name="editorMode" /><span>Remove obstacles</span><kbd>7</kbd></label>
+            <label class="tool"><input type="radio" id="InspectRadioBtn" name="editorMode"/><span>Inspect cells</span><kbd>8</kbd></label>
+          </div>
+          <p id="ToolHint" class="hint"></p>
+          <div id="ObstacleObjectiveRow" class="field" hidden>
+            <label for="SelectedObjectiveTxt">Opened by objective</label>
+            <input type="text" id="SelectedObjectiveTxt" name="selectedObjective" maxlength="2" size="3" readonly placeholder="none"/>
+          </div>
+        </section>
+
+        <section>
+          <h2>Selected level</h2>
+          <div class="field">
+            <label for="LevelIdTxt">Id</label>
+            <input type="text" id="LevelIdTxt" spellcheck="false" disabled/>
+          </div>
+          <div class="field">
+            <label for="LevelNameTxt">Name</label>
+            <input type="text" id="LevelNameTxt" disabled/>
+          </div>
+          <div class="field">
+            <label for="LevelColorInput">Color</label>
+            <input type="color" id="LevelColorInput" value="#e05a4f" disabled/>
+          </div>
+          <p id="LevelIdError" class="error" hidden></p>
+          <p class="hint">Click a level to select it. Other tools find a level by its id, so keep the id stable once something depends on it.</p>
+        </section>
+
+        <section>
+          <h2>Route</h2>
+          <div class="pair">
+            <label class="toggle"><input type="checkbox" id="SetStartPositionCheck"/><span><i class="marker start"></i>Set start</span></label>
+            <label class="toggle"><input type="checkbox" id="SetEndPositionCheck"/><span><i class="marker end"></i>Set end</span></label>
+          </div>
+          <button onclick="calculatePath()" id="CalculatePathBtn" class="wide">Calculate path</button>
+          <p id="PathMessage" class="error" hidden></p>
+          <button onclick="toggleWorldCheck()" id="CheckWorldBtn" class="wide">Check world</button>
+          <p class="hint">Check world shades the cells that can't be reached and lists what each objective needs.</p>
+        </section>
+      </nav>
+
       <div id="CanvasArea"></div>
-      <aside id="CheckPanel" hidden></aside>
+      <aside id="CheckPanel" aria-label="World check" hidden></aside>
     </div>
-    <div id="CellPopup" hidden></div>
+    <div id="CellPopup" role="dialog" aria-label="Cell details" hidden></div>
+
     <script src="grid.js"></script>
     <script src="level.js"></script>
     <script src="world_check.js"></script>

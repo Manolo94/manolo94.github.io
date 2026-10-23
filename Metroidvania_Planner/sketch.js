@@ -1,7 +1,14 @@
 let canvasMouseDown = false; // true only while a press that started on the canvas is held
 
 function setup() {
-  createCanvas(1000, 1000).parent("CanvasArea");
+  // The canvas fills its area and follows it when the window or the check panel changes size
+  let area = document.querySelector("#CanvasArea");
+  createCanvas(Math.max(area.clientWidth, 100), Math.max(area.clientHeight, 100)).parent(area);
+  new ResizeObserver(() =>
+  {
+    if(area.clientWidth > 0 && area.clientHeight > 0 && (area.clientWidth != width || area.clientHeight != height))
+      resizeCanvas(area.clientWidth, area.clientHeight);
+  }).observe(area);
   
   grid = new GridState();
   
@@ -10,6 +17,7 @@ function setup() {
   setupLevelInspector();
   setupWorldUpload();
   setupWorldCheck();
+  setupToolRail();
   
   // Save world automatically every 20 seconds
   var intervalId = window.setInterval(function(){
@@ -186,7 +194,7 @@ function showWorldFileMessage(text, isError)
 {
   let message = document.querySelector("#WorldFileMessage");
   message.textContent = text;
-  message.style.color = isError ? "firebrick" : "";
+  message.style.color = isError ? "var(--danger)" : "";
   message.hidden = false;
   clearTimeout(showWorldFileMessage.timer);
   if(!isError) showWorldFileMessage.timer = setTimeout(() => { message.hidden = true; }, 3000);
@@ -299,7 +307,7 @@ function draw() {
   update();
   refreshLevelInspector();
   
-  background(220);
+  background(214, 219, 225);
   grid.drawGrid();
   
   let mousePosInGrid = grid.screenPositionToGridPosition(createVector(mouseX, mouseY));
@@ -487,7 +495,9 @@ function toggleWorldCheck()
 function setWorldCheck(on)
 {
   worldCheckOn = on;
-  document.querySelector("#CheckWorldBtn").textContent = on ? "Hide Check" : "Check World";
+  let button = document.querySelector("#CheckWorldBtn");
+  button.textContent = on ? "Hide check" : "Check world";
+  button.setAttribute("aria-pressed", on ? "true" : "false");
   document.querySelector("#CheckPanel").hidden = !on;
   if(on) runWorldCheck();
   else
@@ -559,9 +569,15 @@ function renderCheckPanel(r)
   summary.append(el("div", null, "Reachable cells: " + r.reachableCount + " of " + r.cellCount));
   panel.append(summary);
   
-  if(r.warnings.length > 0)
+  if(r.warnings.length > 0 || r.uncollectable.length > 0)
   {
     let list = el("ul", "warnings");
+    if(r.uncollectable.length > 0)
+    {
+      let item = el("li", null, (r.uncollectable.length == 1 ? "Can never be collected: " : "These can never be collected: "));
+      item.append(objectiveList(r.uncollectable, ""));
+      list.append(item);
+    }
     r.warnings.forEach((w) => list.append(el("li", null, w)));
     panel.append(list);
   }
@@ -597,7 +613,9 @@ function renderCheckPanel(r)
     let obj = Objective.allObjectives[o.index];
     [["auto", "Auto"], ["have", "Have"], ["never", "Never"]].forEach(([mode, label]) =>
     {
-      let b = el("button", getObjectiveMode(obj) == mode ? "active" : null, label);
+      let active = getObjectiveMode(obj) == mode;
+      let b = el("button", active ? (mode == "auto" ? "active" : "active changed") : null, label);
+      b.setAttribute("aria-pressed", active ? "true" : "false");
       b.onclick = () =>
       {
         if(mode == "auto") objectiveModes.delete(obj); else objectiveModes.set(obj, mode);
@@ -691,7 +709,7 @@ function showCellPopup(x, y, event)
   else
   {
     let div = line("Not reachable. " + d.reason);
-    div.style.color = "firebrick";
+    div.className = "error";
   }
   
   let info = d.objectiveInfo;
@@ -708,8 +726,13 @@ function showCellPopup(x, y, event)
     // Next to the click, kept inside the window
     let px = (event.pageX !== undefined ? event.pageX : mouseX) + 14;
     let py = (event.pageY !== undefined ? event.pageY : mouseY) + 14;
-    popup.style.left = Math.min(px, window.scrollX + window.innerWidth - popup.offsetWidth - 8) + "px";
-    popup.style.top = Math.min(py, window.scrollY + window.innerHeight - popup.offsetHeight - 8) + "px";
+    // Keep it over the map, flipping to the other side of the click near the right or bottom edge
+    let box = document.querySelector("canvas").getBoundingClientRect();
+    let right = box.right + window.scrollX - 8, bottom = box.bottom + window.scrollY - 8;
+    if(px + popup.offsetWidth > right) px = Math.max(box.left + window.scrollX + 8, px - 28 - popup.offsetWidth);
+    if(py + popup.offsetHeight > bottom) py = Math.max(box.top + window.scrollY + 8, py - 28 - popup.offsetHeight);
+    popup.style.left = px + "px";
+    popup.style.top = py + "px";
   }
 }
 
@@ -717,4 +740,42 @@ function closeCellPopup()
 {
   inspectedCell = null;
   document.querySelector("#CellPopup").hidden = true;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Tool rail: a one-line hint for the selected tool, and keys 1-8 to switch tools
+
+const TOOL_HINTS = {
+  RegularModeRadioBtn: "Drag a level to move it, or drag its edge to resize it. Drag empty space to pan; scroll to zoom.",
+  AddDoorsRadioBtn: "Click near a level's edge to open a door. Neighboring levels need a door on both sides to connect.",
+  AddWallsRadioBtn: "Click a door to close it.",
+  AddObjectivesRadioBtn: "Click a cell inside a level to place an objective.",
+  RemoveObjectivesRadioBtn: "Click an objective to remove it.",
+  AddObstacleRadioBtn: "Click an objective to choose what opens the obstacle, then click cells to block them.",
+  RemoveObstacleRadioBtn: "Click an obstacle to remove it.",
+  InspectRadioBtn: "Click a cell to see what it needs to be reached and what it unlocks."
+};
+
+function setupToolRail()
+{
+  let radios = Array.from(document.querySelectorAll("input[name=editorMode]"));
+  let refresh = () =>
+  {
+    let current = radios.find((r) => r.checked);
+    document.querySelector("#ToolHint").textContent = current ? TOOL_HINTS[current.id] || "" : "";
+    document.querySelector("#ObstacleObjectiveRow").hidden = !document.querySelector("#AddObstacleRadioBtn").checked;
+  };
+  radios.forEach((radio) => radio.addEventListener("change", refresh));
+  refresh();
+  
+  document.addEventListener("keydown", (e) =>
+  {
+    if(e.ctrlKey || e.metaKey || e.altKey) return;
+    let tag = document.activeElement ? document.activeElement.tagName : "";
+    if(tag === "INPUT" && document.activeElement.type !== "radio" && document.activeElement.type !== "checkbox") return;
+    let n = parseInt(e.key, 10);
+    if(!(n >= 1 && n <= radios.length)) return;
+    radios[n - 1].checked = true;
+    radios[n - 1].dispatchEvent(new Event("change"));
+  });
 }

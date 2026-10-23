@@ -312,9 +312,10 @@ class GridState
     let SHOW_ALL_GRID_SIZE_THRESHOLD = 20;
     for(var i = gridFractionalOffsetInScreenX; i <= width; i += increment)
     { 
-      stroke(100);
+      stroke(178, 186, 196);
       if(isCloseEnough(i, this.gridOriginInScreen.x))
       {
+        stroke(120, 130, 142);
         strokeWeight(3);
         line(i, 0, i, height);
       }
@@ -330,8 +331,10 @@ class GridState
     let gridFractionalOffsetInScreenY = gridFractionalOffsetY*this.gridSize;
     for(var j = gridFractionalOffsetInScreenY; j <= height; j += this.gridSize)
     { 
+      stroke(178, 186, 196);
       if(isCloseEnough(j, this.gridOriginInScreen.y))
       {
+        stroke(120, 130, 142);
         strokeWeight(3);
         line(0, j, width, j);
       }
