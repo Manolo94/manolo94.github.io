@@ -86,6 +86,20 @@ class Obstacle
 
 Objective.allObjectives = [];
 
+// The longest start of 'label' that fits in maxWidth pixels at the current text size, ending in "…" when cut.
+//  Returns "" when not even one character fits.
+function fitText(label, maxWidth)
+{
+  if(textWidth(label) <= maxWidth) return label;
+  let lo = 0, hi = label.length;
+  while(lo < hi)
+  {
+    let mid = Math.ceil((lo + hi) / 2);
+    if(textWidth(label.slice(0, mid).trimEnd() + "…") <= maxWidth) lo = mid; else hi = mid - 1;
+  }
+  return lo == 0 ? "" : label.slice(0, lo).trimEnd() + "…";
+}
+
 class Level {
   
   constructor(pos, size, color, id = "", name = "") 
@@ -538,13 +552,14 @@ class Level {
     this.drawLabel();
   }
   
-  // Name (or id when there is no name) in the upper left corner, outlined when the level is selected
-  drawLabel()
+  // Name (or id when there is no name) in the upper left corner, outlined when the level is selected.
+  //  A name too long for the level is shortened with an ellipsis; full = true draws it whole (on hover).
+  drawLabel(full = false)
   {
     let upperLeft = grid.getScreenPosFromGridPos(this.pos);
     let label = this.name ? this.name : this.id;
     
-    if(grid.inspectedLevel === this)
+    if(grid.inspectedLevel === this && !full)
     {
       let screenSize = grid.gridVectorToScreenVector(this.size);
       noFill();
@@ -558,6 +573,12 @@ class Level {
     textSize(size);
     textAlign(LEFT, TOP);
     let lx = upperLeft.x + WALL_BORDER*grid.gridSize + 4, ly = upperLeft.y + WALL_BORDER*grid.gridSize + 3;
+    if(!full)
+    {
+      let room = this.size.x * grid.gridSize - 2*WALL_BORDER*grid.gridSize - 8;
+      label = fitText(label, room);
+      if(!label) return;
+    }
     noStroke();
     fill(255, 255, 255, 170); // light backing so the label stays readable over objectives and obstacles
     rect(lx - 2, ly - 1, textWidth(label) + 4, size + 2, 2);

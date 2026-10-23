@@ -460,6 +460,9 @@ function draw() {
     level.drawLevel();
   });
   
+  // The level under the mouse shows its whole name, on top of everything
+  if(grid.hoveringOverLevel != null && !canvasMouseDown) grid.hoveringOverLevel.drawLabel(true);
+  
   refreshWorldCheck();
   drawWorldCheckOverlay();
   runPathSearchSlice();
