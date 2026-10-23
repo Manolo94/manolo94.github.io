@@ -18,6 +18,8 @@ function setup() {
   setupWorldUpload();
   setupWorldCheck();
   setupToolRail();
+  setupRegions();
+  renderRegionList(true);
   
   // Save world automatically every 20 seconds
   var intervalId = window.setInterval(function(){
@@ -156,6 +158,7 @@ function checkWorldSaveObject(world)
   if(!Array.isArray(world.levels)) return "it has no levels list";
   if(!isVec(world.startPosition) || !isVec(world.endPosition)) return "the start or end position is missing";
   if(!isVec(world.gridOriginInScreen) || typeof world.gridSize !== "number") return "the view settings are missing";
+  if(world.regions !== undefined && !Array.isArray(world.regions)) return "its regions are not a list";
   
   let ids = new Set();
   for(let i = 0; i < world.levels.length; i++)
@@ -455,13 +458,17 @@ function draw() {
   
   let mousePosInGrid = grid.screenPositionToGridPosition(createVector(mouseX, mouseY));
   
+  updateZoomAnimation();
   grid.levels.forEach((level) =>
   {
     level.drawLevel();
   });
+  drawRegionsOverlay();
+  if(frameCount % 10 == 0) renderRegionList(false);
+  refreshRegionInspector();
   
   // The level under the mouse shows its whole name, on top of everything
-  if(grid.hoveringOverLevel != null && !canvasMouseDown) grid.hoveringOverLevel.drawLabel(true);
+  if(grid.hoveringOverLevel != null && !canvasMouseDown && !regionsCollapsed()) grid.hoveringOverLevel.drawLabel(true);
   
   refreshWorldCheck();
   drawWorldCheckOverlay();
@@ -491,6 +498,10 @@ function mousePressed(event)
   // Ignore clicks on the buttons and text fields above the canvas
   if(event && event.target && event.target.tagName !== "CANVAS") return;
   canvasMouseDown = true;
+  zoomTarget = null;
+  
+  // Zoomed out: a click on a region zooms into it instead of editing the levels underneath
+  if(handleRegionClick()) { canvasMouseDown = false; return; }
   
   grid.selectedLevel = null;
   grid.nowTranslatingALevel = false;
@@ -573,6 +584,8 @@ function mousePressed(event)
   });
   if(document.querySelector("#InspectRadioBtn").checked)
     inspectCellUnderMouse(event);
+  if(document.querySelector("#PaintRegionRadioBtn").checked && clickedLevel != null)
+    paintRegion(clickedLevel);
   
   // Clicking a level shows it in the Selected level fields; clicking empty space in Move and Size mode clears them
   if(clickedLevel != null) grid.inspectedLevel = clickedLevel;
@@ -794,6 +807,35 @@ function renderCheckPanel(r)
     table.append(row);
   });
   panel.append(table);
+  
+  // One line per region: how much of it can be reached, and what getting in and covering it all need
+  let regions = analyzeRegions(r);
+  if(regions.length > 0)
+  {
+    panel.append(el("h4", null, "Regions"));
+    let rt = el("table");
+    let rh = el("tr");
+    ["Region", "Reachable", "Entry needs", "All of it needs"].forEach((h) => rh.append(el("th", null, h)));
+    rt.append(rh);
+    regions.forEach((info) =>
+    {
+      let row = el("tr");
+      let name = el("td");
+      let sw = el("span", "region-swatch"); sw.style.background = info.region.color;
+      name.append(sw, info.region.name);
+      row.append(name);
+      let pct = Math.round(100 * info.reachable / info.cells);
+      row.append(el("td", pct < 100 ? (pct == 0 ? "bad" : null) : "ok", pct + "%"));
+      let entry = el("td", "needs");
+      if(info.entry == null) entry.textContent = "-"; else entry.append(objectiveList(info.entry, "nothing"));
+      row.append(entry);
+      let all = el("td", "needs");
+      all.append(objectiveList([...info.all].sort((a, b) => a - b), info.reachable ? "nothing" : "-"));
+      row.append(all);
+      rt.append(row);
+    });
+    panel.append(rt);
+  }
 }
 
 // Darken the cells that can't be reached, and outline the inspected cell
@@ -919,7 +961,8 @@ const TOOL_HINTS = {
   RemoveObjectivesRadioBtn: "Click an objective to remove it.",
   AddObstacleRadioBtn: "Click an objective to choose what opens the obstacle, then click cells to block them.",
   RemoveObstacleRadioBtn: "Click an obstacle to remove it.",
-  InspectRadioBtn: "Click a cell to see what it needs to be reached and what it unlocks."
+  InspectRadioBtn: "Click a cell to see what it needs to be reached and what it unlocks.",
+  PaintRegionRadioBtn: "Click levels to put them in the region picked in the Regions list; click again to take them out."
 };
 
 function setupToolRail()

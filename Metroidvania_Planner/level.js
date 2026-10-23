@@ -102,7 +102,7 @@ function fitText(label, maxWidth)
 
 class Level {
   
-  constructor(pos, size, color, id = "", name = "") 
+  constructor(pos, size, color, id = "", name = "", region = "") 
   {
     this.pos = pos;
     this.size = size;
@@ -112,6 +112,7 @@ class Level {
     //  so other tools can refer to it even if levels are reordered. The name is free text for display.
     this.id = id;
     this.name = name;
+    this.region = region; // id of the map region this level belongs to, or "" for none
     
     // One wall break array per side
     // Each wall break contains an integer representing the location (in grid units) of the 
@@ -137,6 +138,7 @@ class Level {
     return {
       id: this.id,
       name: this.name,
+      region: this.region,
       pos: this.pos,
       size: this.size,
       colorStr: this.color.toString(),
@@ -153,7 +155,8 @@ class Level {
     let newLevelColor = color(saveObject.colorStr)
     
     let newLevel = new Level(newLevelPos, newLevelSize, newLevelColor,
-                             saveObject.id || "", saveObject.name || "")
+                             saveObject.id || "", saveObject.name || "",
+                             typeof saveObject.region === "string" ? saveObject.region : "")
     newLevel.wallBreaks = saveObject.wallBreaks
     
     newLevel.objectives = []
