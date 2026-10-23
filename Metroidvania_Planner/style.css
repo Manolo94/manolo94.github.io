@@ -1,7 +1,230 @@
+/* Metroidvania Planner: dark slate rails around a light drafting canvas, one amber accent
+   (the same amber as the end marker and the selection outline on the map). */
+:root {
+  --ink: #1d2630;        /* rails and bars */
+  --ink-raised: #26313d; /* inputs, hovered tools */
+  --line: #3a4756;
+  --text: #e6eaef;
+  --muted: #98a5b4;
+  --accent: #e8a33d;
+  --accent-text: #22190a;
+  --danger: #e26a5f;
+  --ok: #7fc48a;
+  --canvas: #d6dbe1;
+  --font: "Barlow Semi Condensed", "Arial Narrow", system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+/* The hidden attribute always wins over the display rules below */
+[hidden] { display: none !important; }
+
 html, body {
   margin: 0;
   padding: 0;
+  height: 100%;
+  background: var(--ink);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.35;
 }
-canvas {
-  display: block;
+
+canvas { display: block; }
+
+button, input { font: inherit; color: inherit; }
+
+/* ---------- top bar ---------- */
+#TopBar {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  height: 52px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--line);
+}
+#TopBar h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+#TopBar .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+#TopBar .status { display: flex; align-items: center; gap: 10px; margin-left: auto; color: var(--muted); white-space: nowrap; }
+#TopBar .confirm { display: inline-flex; align-items: center; gap: 6px; color: var(--text); }
+#SavedMessage { color: var(--ok); }
+
+/* ---------- buttons ---------- */
+button {
+  padding: 4px 11px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+}
+button:hover { background: var(--ink-raised); }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+button.primary:hover { background: #f0b456; }
+button.danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, var(--line)); }
+button.wide { display: block; width: 100%; margin-top: 8px; padding: 6px 10px; text-align: left; }
+button[aria-pressed="true"] { background: var(--ink-raised); border-color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ---------- layout ---------- */
+#Workspace {
+  display: flex;
+  height: calc(100% - 52px);
+}
+#ToolRail {
+  flex: 0 0 248px;
+  overflow-y: auto;
+  padding: 6px 14px 20px;
+  border-right: 1px solid var(--line);
+}
+#CanvasArea {
+  flex: 1 1 auto;
+  min-width: 0;
+  position: relative;
+  background: var(--canvas);
+  overflow: hidden;
+}
+
+/* ---------- tool rail ---------- */
+#ToolRail section { padding: 12px 0 14px; border-bottom: 1px solid var(--line); }
+#ToolRail section:last-child { border-bottom: none; }
+#ToolRail h2 { margin: 0 0 8px; font-size: 13px; font-weight: 600; color: var(--muted); letter-spacing: 0.02em; }
+
+.tools { display: flex; flex-direction: column; gap: 1px; }
+.tool {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px 5px 10px;
+  border-left: 3px solid transparent;
+  border-radius: 0 4px 4px 0;
+  cursor: pointer;
+}
+.tool input { position: absolute; opacity: 0; pointer-events: none; }
+.tool span { flex: 1; }
+.tool kbd { font: inherit; font-size: 12px; color: var(--muted); }
+.tool:hover { background: var(--ink-raised); }
+.tool:has(input:checked) { border-left-color: var(--accent); background: var(--ink-raised); font-weight: 600; }
+.tool:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+.hint { margin: 8px 0 0; font-size: 13px; color: var(--muted); }
+.error { margin: 6px 0 0; font-size: 13px; color: var(--danger); }
+
+.field { display: grid; grid-template-columns: 52px 1fr; align-items: center; gap: 8px; margin-top: 6px; }
+.field label { color: var(--muted); font-size: 13px; }
+#ObstacleObjectiveRow { grid-template-columns: 1fr 56px; margin-top: 10px; }
+.field input[type=text] {
+  width: 100%;
+  padding: 4px 7px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--ink-raised);
+}
+.field input:disabled { opacity: 0.45; }
+.field input[type=color] { width: 44px; height: 26px; padding: 0 2px; border: 1px solid var(--line); border-radius: 4px; background: var(--ink-raised); }
+#SelectedObjectiveTxt { text-align: center; }
+
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.toggle { display: block; cursor: pointer; }
+.toggle input { position: absolute; opacity: 0; pointer-events: none; }
+.toggle span {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 9px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+.toggle:hover span { background: var(--ink-raised); }
+.toggle input:checked + span { border-color: var(--accent); background: var(--ink-raised); }
+.toggle input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+.marker { display: inline-block; width: 11px; height: 11px; border-radius: 50%; border: 1px solid #000; }
+.marker.start { background: #fff; }
+.marker.end { background: yellow; }
+
+/* ---------- world check panel ---------- */
+#CheckPanel {
+  flex: 0 0 380px;
+  overflow-y: auto;
+  padding: 14px 14px 24px;
+  border-left: 1px solid var(--line);
+  font-size: 14px;
+}
+#CheckPanel h3 { margin: 0 0 6px; font-size: 18px; font-weight: 700; }
+#CheckPanel .summary { display: flex; gap: 14px; align-items: baseline; }
+#CheckPanel .summary div { margin: 2px 0; }
+#CheckPanel .ok { color: var(--ok); }
+#CheckPanel .bad { color: var(--danger); }
+#CheckPanel .warnings { margin: 10px 0 12px; padding: 0 0 0 16px; color: #f0c27a; }
+#CheckPanel .warnings li { margin: 3px 0; }
+#CheckPanel p { color: var(--muted); font-size: 13px; }
+#CheckPanel p button { margin-left: 4px; font-size: 13px; padding: 2px 8px; color: var(--text); }
+#CheckPanel table { border-collapse: collapse; width: 100%; }
+#CheckPanel td, #CheckPanel th { padding: 4px 4px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
+#CheckPanel th { font-weight: 600; font-size: 12px; color: var(--muted); }
+#CheckPanel td.bad { font-size: 13px; }
+#CheckPanel .needs span { display: inline-flex; flex-wrap: wrap; gap: 2px; }
+
+.objective-dot {
+  display: inline-block;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 3px;
+  line-height: 17px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.6);
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1a1a1a;
+  background: #ccc;
+}
+.mode-toggle { display: inline-flex; }
+.mode-toggle button {
+  font-size: 12px;
+  padding: 1px 6px;
+  border-radius: 0;
+  color: var(--muted);
+}
+.mode-toggle button:first-child { border-radius: 4px 0 0 4px; }
+.mode-toggle button:last-child { border-radius: 0 4px 4px 0; }
+.mode-toggle button + button { border-left: none; }
+.mode-toggle button.active { background: var(--line); border-color: var(--line); color: var(--text); font-weight: 600; }
+/* Have and Never change the check, so they stand out; Auto is the quiet default */
+.mode-toggle button.active.changed { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+
+/* ---------- cell popup (Inspect cells) ---------- */
+#CellPopup {
+  position: absolute;
+  z-index: 10;
+  max-width: 300px;
+  padding: 10px 12px;
+  background: var(--ink);
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--accent);
+  border-radius: 4px;
+  box-shadow: 0 6px 18px rgba(10, 15, 20, 0.35);
+  font-size: 14px;
+}
+#CellPopup .title { display: block; margin-right: 22px; font-weight: 700; font-size: 15px; }
+#CellPopup .close {
+  position: absolute; top: 4px; right: 4px;
+  padding: 0 6px; border: none; font-size: 18px; color: var(--muted);
+}
+#CellPopup div { margin-top: 5px; }
+#CellPopup .objective-dot { vertical-align: -3px; }
+
+/* ---------- narrow windows: stack the panels around the canvas ---------- */
+@media (max-width: 900px) {
+  #TopBar { height: auto; flex-wrap: wrap; padding: 8px 12px; gap: 8px 14px; }
+  #TopBar .status { margin-left: 0; white-space: normal; }
+  #Workspace { flex-direction: column; height: auto; }
+  #ToolRail { flex: none; border-right: none; border-bottom: 1px solid var(--line); }
+  .tools { display: grid; grid-template-columns: 1fr 1fr; }
+  .tool kbd { display: none; }
+  #CanvasArea { flex: none; height: 75vh; }
+  #CheckPanel { flex: none; border-left: none; border-top: 1px solid var(--line); }
 }
