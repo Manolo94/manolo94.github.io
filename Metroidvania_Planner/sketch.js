@@ -8,6 +8,7 @@ function setup() {
   loadWorld();
   
   setupLevelInspector();
+  setupWorldUpload();
   
   // Save world automatically every 20 seconds
   var intervalId = window.setInterval(function(){
@@ -89,6 +90,104 @@ function loadWorld()
 function clearWorldFirstTry()
 {
   document.getElementById("ClearWorldConfirmSpan").hidden = false;
+}
+
+// Download the world as a .json file (the same object that Save World keeps in the browser)
+function downloadWorld()
+{
+  let json = JSON.stringify(grid.getGridStateSaveObject(), null, 2);
+  let blob = new Blob([json], { type: "application/json" });
+  let link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "world.json";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+  showWorldFileMessage("Downloaded world.json", false);
+}
+
+// Upload: read and check the file first, then ask before replacing the current world
+let pendingUploadedWorld = null;
+
+function setupWorldUpload()
+{
+  let input = document.querySelector("#UploadWorldInput");
+  input.addEventListener("change", () =>
+  {
+    let file = input.files[0];
+    input.value = ""; // so choosing the same file again still triggers a change
+    if(file === undefined) return;
+    
+    let reader = new FileReader();
+    reader.onload = () =>
+    {
+      let world;
+      try { world = JSON.parse(reader.result); }
+      catch(e) { showWorldFileMessage("Could not read " + file.name + ": it is not valid JSON", true); return; }
+      
+      let problem = checkWorldSaveObject(world);
+      if(problem) { showWorldFileMessage("Could not load " + file.name + ": " + problem, true); return; }
+      
+      pendingUploadedWorld = world;
+      document.querySelector("#UploadWorldFileName").textContent = file.name;
+      document.querySelector("#UploadWorldConfirmSpan").hidden = false;
+      document.querySelector("#WorldFileMessage").hidden = true;
+    };
+    reader.onerror = () => showWorldFileMessage("Could not read " + file.name, true);
+    reader.readAsText(file);
+  });
+}
+
+// Returns a description of what is wrong with a world object, or null if it can be loaded
+function checkWorldSaveObject(world)
+{
+  let isVec = (v) => v != null && typeof v.x === "number" && typeof v.y === "number";
+  if(world == null || typeof world !== "object") return "the file does not contain a world";
+  if(!Array.isArray(world.levels)) return "it has no levels list";
+  if(!isVec(world.startPosition) || !isVec(world.endPosition)) return "the start or end position is missing";
+  if(!isVec(world.gridOriginInScreen) || typeof world.gridSize !== "number") return "the view settings are missing";
+  
+  let ids = new Set();
+  for(let i = 0; i < world.levels.length; i++)
+  {
+    let level = world.levels[i];
+    if(level == null || !isVec(level.pos) || !isVec(level.size)) return "level " + (i + 1) + " has no position or size";
+    if(!Array.isArray(level.wallBreaks) || level.wallBreaks.length !== 4) return "level " + (i + 1) + " has no wall breaks";
+    if(!GridState.isWellFormedLevelId(level.id)) return "level " + (i + 1) + " has no valid id";
+    if(ids.has(level.id)) return "two levels share the id " + level.id;
+    ids.add(level.id);
+  }
+  return null;
+}
+
+function uploadWorldConfirm()
+{
+  document.querySelector("#UploadWorldConfirmSpan").hidden = true;
+  if(pendingUploadedWorld == null) return;
+  
+  grid = new GridState();
+  grid.loadGridStateSaveObject(pendingUploadedWorld);
+  pendingUploadedWorld = null;
+  refreshLevelInspector();
+  saveWorld(); // keep it in the browser too, like any other edit
+  showWorldFileMessage("World loaded from " + document.querySelector("#UploadWorldFileName").textContent, false);
+}
+
+function uploadWorldCancel()
+{
+  pendingUploadedWorld = null;
+  document.querySelector("#UploadWorldConfirmSpan").hidden = true;
+}
+
+function showWorldFileMessage(text, isError)
+{
+  let message = document.querySelector("#WorldFileMessage");
+  message.textContent = text;
+  message.style.color = isError ? "firebrick" : "";
+  message.hidden = false;
+  clearTimeout(showWorldFileMessage.timer);
+  if(!isError) showWorldFileMessage.timer = setTimeout(() => { message.hidden = true; }, 3000);
 }
 
 function clearWorldConfirm()
