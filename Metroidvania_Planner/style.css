@@ -145,6 +145,23 @@ button[aria-pressed="true"] { background: var(--ink-raised); border-color: var(-
 .marker.start { background: #fff; }
 .marker.end { background: yellow; }
 
+.run { margin-top: 8px; }
+.run button { padding: 6px 10px; }
+.path-status { margin-top: 8px; font-size: 13px; color: var(--muted); }
+.path-status div { margin-top: 3px; }
+.path-status strong { color: var(--text); font-weight: 600; }
+.path-status .objective-dot { margin: 1px 1px 0 0; }
+button.link {
+  padding: 0;
+  border: none;
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+button.link:hover { background: none; }
+#CheckPanel .route-col { text-align: center; }
+#CheckPanel input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; }
+
 /* ---------- world check panel ---------- */
 #CheckPanel {
   flex: 0 0 380px;

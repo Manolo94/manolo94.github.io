@@ -108,14 +108,32 @@ class WorldGraph
     return c === undefined ? -1 : c;
   }
 
+  // Steps from every cell to 'target' with every gate open (unreachable cells get cellCount + 1)
+  distancesTo(target)
+  {
+    let count = this.cellX.length;
+    let dist = new Int32Array(count).fill(count + 1);
+    if(target < 0) return dist;
+    let incoming = Array.from({ length: count }, () => []);
+    for(let c = 0; c < count; c++) this.neighbors[c].forEach((d) => incoming[d].push(c));
+    let queue = [target];
+    dist[target] = 0;
+    for(let head = 0; head < queue.length; head++)
+    {
+      let c = queue[head];
+      incoming[c].forEach((p) => { if(dist[p] > count) { dist[p] = dist[c] + 1; queue.push(p); } });
+    }
+    return dist;
+  }
+
   // Everything reachable from the start.
   //  have[i]: objective i is in hand from the start. never[i]: objective i is never picked up.
   //  Returns { reach: Uint8Array per cell, got: Uint8Array per objective }.
-  fixpoint(have, never)
+  fixpoint(have, never, start = this.start)
   {
     let got = Uint8Array.from(have);
     let reach = new Uint8Array(this.cellX.length);
-    if(this.start < 0) return { reach, got };
+    if(start < 0) return { reach, got };
 
     let canEnter = (c) => this.needs[c] == NEEDS_NOTHING || (this.needs[c] >= 0 && got[this.needs[c]] == 1);
     let pick = (c) =>
@@ -126,9 +144,9 @@ class WorldGraph
     };
 
     // Flood fill; cells turned away by a closed gate wait in 'blocked' and are retried after each pickup
-    let queue = [this.start];
-    reach[this.start] = 1;
-    pick(this.start);
+    let queue = [start];
+    reach[start] = 1;
+    pick(start);
     let blocked = [];
     let pickedSomething = false;
     while(true)

@@ -29,6 +29,7 @@ class GridState
     this.nowRemovingObstaclesFromALevel = false;
     
     this.path = [];
+    this.pathPartial = false; // true while the path is a best-so-far route from a search that hasn't finished
   }
   
   getGridStateSaveObject()
@@ -258,7 +259,9 @@ class GridState
       if(i < this.path.length - 2) endPosInScreen = p5.Vector.add(endPosInScreen, createVector(offset, offset));
       
       // Set the path color to match how far along the way we are
-      let pathColor = lerpColor(color("black"), color("white"), i / this.path.length);
+      //  (amber for a partial route, so it can't be mistaken for a finished one)
+      let pathColor = this.pathPartial ? lerpColor(color(120, 70, 0), color(255, 196, 90), i / this.path.length)
+                                       : lerpColor(color("black"), color("white"), i / this.path.length);
       
       strokeWeight(2);
       stroke(pathColor)
