@@ -319,7 +319,9 @@ function calculatePath()
 {
   if(pathSearch != null && pathSearch.isActive) pathSearch.stop();
   Objective.updateAllObjectives();
-  pathSearch = new PathSearch(grid, grid.startPosition, grid.endPosition, routeOptions());
+  // The hierarchical search is much faster; the flat one handles more than 30 tracked objectives
+  pathSearch = new HierarchicalPathSearch(grid, grid.startPosition, grid.endPosition, routeOptions());
+  if(pathSearch.tooBig) pathSearch = new PathSearch(grid, grid.startPosition, grid.endPosition, routeOptions());
   pathSearchSignature = currentWorldSignature();
   pathLastShown = 0;
   grid.setPathFromPathStack(null);
@@ -401,9 +403,14 @@ function showPathProgress(force)
     let state = s.status == "paused" ? "Paused" : s.status == "stopped" ? "Stopped" : "Searching";
     line(strong(state), ": " + states + ", " + seconds);
     if(s.status == "stopped" && s.message) line(s.message);
-    let left = s.bestDistanceToEnd;
-    line("Best so far: " + s.bestRequiredCollected + " of " + s.requiredCount + " required, " +
-         (left == 0 ? "at the end" : left + " step" + (left == 1 ? "" : "s") + " from the end"));
+    if(s.greedyLength >= 0)
+      line("Quick route: " + s.greedyLength + " steps. It's complete; the search is looking for a shorter one.");
+    else
+    {
+      let left = s.bestDistanceToEnd;
+      line("Best so far: " + s.bestRequiredCollected + " of " + s.requiredCount + " required, " +
+           (left == 0 ? "at the end" : left + " step" + (left == 1 ? "" : "s") + " from the end"));
+    }
   }
   
   // Objectives the route picks up, in order: the required ones, and the others that open a gate
