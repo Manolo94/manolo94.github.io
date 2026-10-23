@@ -181,6 +181,10 @@ button.link:hover { background: none; }
 #CheckPanel .region-swatch { display: inline-block; width: 11px; height: 11px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; border: 1px solid rgba(0,0,0,0.5); }
 #CheckPanel h4 { margin: 16px 0 6px; font-size: 15px; font-weight: 700; }
 
+.objective-name-field { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.objective-name-field input { flex: 1; min-width: 0; }
+.obj-name { margin-left: 6px; }
+
 /* ---------- world check panel ---------- */
 #CheckPanel {
   flex: 0 0 380px;

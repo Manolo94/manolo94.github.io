@@ -19,6 +19,7 @@ function setup() {
   setupWorldCheck();
   setupToolRail();
   setupRegions();
+  setupObjectiveInspector();
   renderRegionList(true);
   
   // Save world automatically every 20 seconds
@@ -474,8 +475,9 @@ function draw() {
   if(frameCount % 10 == 0) renderRegionList(false);
   refreshRegionInspector();
   
-  // The level under the mouse shows its whole name, on top of everything
+  // The level under the mouse shows its whole name, on top of everything; an objective under it, its own
   if(grid.hoveringOverLevel != null && !canvasMouseDown && !regionsCollapsed()) grid.hoveringOverLevel.drawLabel(true);
+  refreshObjectiveInspector();
   
   refreshWorldCheck();
   drawWorldCheckOverlay();
@@ -485,6 +487,12 @@ function draw() {
   grid.drawStartAndEndPositions();
   
   grid.drawCurrentPath();
+  if(!canvasMouseDown && !regionsCollapsed())
+  {
+    let p = grid.screenPositionToGridPosition(createVector(mouseX, mouseY));
+    let hovered = objectiveAt(Math.floor(p.x), Math.floor(p.y));
+    if(hovered && mouseX >= 0 && mouseY >= 0 && mouseX < width && mouseY < height) hovered.drawHoverName();
+  }
   
   // Show highlight if close to border
   if(grid.hoveringOverLevel != null && grid.nowSizingALevel == false && grid.inRegularMode)
@@ -540,7 +548,7 @@ function mousePressed(event)
         // Check where to put the objective
         let mousePosInGrid = grid.screenPositionToGridPosition(createVector(mouseX, mouseY));
         
-        if(grid.nowAddingObjectives) level.addObjective(mousePosInGrid);
+        if(grid.nowAddingObjectives) grid.inspectedObjective = level.addObjective(mousePosInGrid);
         else if(grid.nowRemovingObjectives) level.removeObjective(mousePosInGrid);
       }
       else if(grid.nowAddingObstaclesToALevel || grid.nowRemovingObstaclesFromALevel)
@@ -553,6 +561,7 @@ function mousePressed(event)
         if(clickedObjective != null)
         {
           grid.selectedObjective = clickedObjective;
+          grid.inspectedObjective = clickedObjective;
           document.querySelector("#SelectedObjectiveTxt").value = grid.selectedObjective.index;
         }
         else if(grid.selectedObjective != null)
@@ -709,6 +718,8 @@ function objectiveDot(i, colorName)
   let c = color(colorName || "#ccc");
   if(0.299 * red(c) + 0.587 * green(c) + 0.114 * blue(c) < 140) { dot.style.color = "#fff"; dot.style.textShadow = "none"; }
   dot.textContent = i;
+  let obj = Objective.allObjectives[i];
+  dot.title = "#" + i + (obj && obj.name ? " " + obj.name : "");
   return dot;
 }
 
@@ -778,6 +789,8 @@ function renderCheckPanel(r)
   {
     let row = el("tr");
     let dotCell = el("td"); dotCell.append(objectiveDot(o.index, o.color));
+    let objName = Objective.allObjectives[o.index].name;
+    if(objName) dotCell.append(el("span", "obj-name", objName));
     row.append(dotCell);
     row.append(el("td", o.status == "unreachable" ? "bad" : null, statusText[o.status]));
     let needs = el("td", "needs");
@@ -879,6 +892,8 @@ function inspectCellUnderMouse(event)
 {
   if(worldCheckResult == null) runWorldCheck();
   let pos = grid.screenPositionToGridPosition(createVector(mouseX, mouseY));
+  let here = objectiveAt(Math.floor(pos.x), Math.floor(pos.y));
+  if(here) grid.inspectedObjective = here;
   showCellPopup(Math.floor(pos.x), Math.floor(pos.y), event);
 }
 
@@ -906,9 +921,10 @@ function showCellPopup(x, y, event)
   if(d.objective >= 0)
   {
     let statusText = { collected: "collected", have: "in hand", never: "ignored", unreachable: "can't be collected" };
-    line("Objective ", dotFor(d.objective), " (" + statusText[d.objectiveInfo.status] + ")");
+    let objName = Objective.allObjectives[d.objective].name;
+    line("Objective ", dotFor(d.objective), (objName ? " " + objName : "") + " (" + statusText[d.objectiveInfo.status] + ")");
   }
-  if(d.gate >= 0) line("Gate: opens with ", dotFor(d.gate));
+  if(d.gate >= 0) line("Gate: opens with ", dotFor(d.gate), Objective.allObjectives[d.gate].name ? " " + Objective.allObjectives[d.gate].name : "");
   else if(d.gate == NEEDS_REMOVED_OBJECTIVE) line("Gate: its objective was removed, so it never opens");
   
   if(d.reachable)
@@ -994,4 +1010,34 @@ function setupToolRail()
     radios[n - 1].checked = true;
     radios[n - 1].dispatchEvent(new Event("change"));
   });
+}
+
+// ---------------------------------------------------------------------------------------------
+// Objective names: the Selected objective field, and finding the objective in a cell
+
+function objectiveAt(x, y)
+{
+  return Objective.allObjectives.find((o) => o.pos.x + o.parentLevelPos.x == x && o.pos.y + o.parentLevelPos.y == y);
+}
+
+let objectiveInspectorShown = undefined;
+
+function setupObjectiveInspector()
+{
+  document.querySelector("#ObjectiveNameTxt").addEventListener("input", (e) =>
+  {
+    if(grid.inspectedObjective) grid.inspectedObjective.name = e.target.value;
+  });
+}
+
+function refreshObjectiveInspector()
+{
+  let obj = grid.inspectedObjective;
+  if(obj && !Objective.allObjectives.includes(obj)) obj = grid.inspectedObjective = null;   // removed
+  if(obj === objectiveInspectorShown) return;
+  objectiveInspectorShown = obj;
+  let input = document.querySelector("#ObjectiveNameTxt");
+  input.disabled = !obj;
+  input.value = obj ? obj.name : "";
+  document.querySelector("#SelectedObjectiveDot").replaceChildren(...(obj ? [objectiveDot(obj.index, obj.color)] : []));
 }

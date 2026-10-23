@@ -16,6 +16,7 @@ class GridState
     // **********************
   
     this.selectedLevel = null;
+    this.inspectedObjective = null; // objective shown in the Selected objective field
     this.inspectedLevel = null; // level shown in the Selected level fields (stays selected after the mouse is released)
     this.selectedObjective = null;
     this.sizingBorders = createVector(0,0);
