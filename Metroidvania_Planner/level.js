@@ -55,6 +55,13 @@ class Obstacle
     this.parentLevelSize = parentLevelSize;
     this.unlockedByObjectiveIdx = unlockedByObjectiveIdx;
   }
+  
+  // Saved fields only: drawing caches a parentObjective reference, which must not end up in the file
+  toJSON()
+  {
+    return { pos: this.pos, unlockedByObjectiveIdx: this.unlockedByObjectiveIdx,
+             parentLevelPos: this.parentLevelPos, parentLevelSize: this.parentLevelSize };
+  }
 
   drawObstacle()
   {    

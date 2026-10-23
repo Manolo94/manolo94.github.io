@@ -24,6 +24,17 @@
         </span>
       </div>
       <div>
+        <button onclick="downloadWorld()" id="DownloadWorldBtn">Download World</button>
+        <button onclick="document.querySelector('#UploadWorldInput').click()" id="UploadWorldBtn">Upload World</button>
+        <input type="file" id="UploadWorldInput" accept=".json,application/json" hidden/>
+        <span id="UploadWorldConfirmSpan" hidden>
+          Replace the current world with <span id="UploadWorldFileName"></span>?
+          <button onclick="uploadWorldConfirm()">Confirm</button>
+          <button onclick="uploadWorldCancel()">Cancel</button>
+        </span>
+        <span id="WorldFileMessage" hidden></span>
+      </div>
+      <div>
         <input type="radio" id="RegularModeRadioBtn" name="editorMode" checked />
         <label for="RegularModeRadioBtn">Move and Size Levels</label>
         <input type="radio" id="AddDoorsRadioBtn" name="editorMode"/>
