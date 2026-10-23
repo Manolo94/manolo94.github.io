@@ -1,9 +1,13 @@
+let canvasMouseDown = false; // true only while a press that started on the canvas is held
+
 function setup() {
   createCanvas(1000, 1000);
   
   grid = new GridState();
   
   loadWorld();
+  
+  setupLevelInspector();
   
   // Save world automatically every 20 seconds
   var intervalId = window.setInterval(function(){
@@ -41,7 +45,7 @@ function update()
     }
   }
   // Pan around the grid
-  else if(mouseIsPressed)
+  else if(canvasMouseDown)
   {
     // Pan around the grid when nothing is selected and mouse is pressed
     grid.panGrid(mouseX - pmouseX, mouseY - pmouseY);
@@ -95,6 +99,79 @@ function clearWorldConfirm()
   
   localStorage.removeItem('GridSaveObjectJSON')
   grid = new GridState()
+  refreshLevelInspector();
+}
+
+// Selected level fields: edit the id and name of the level last clicked
+let inspectorShownLevel = undefined;
+
+function setupLevelInspector()
+{
+  let idTxt = document.querySelector("#LevelIdTxt");
+  let nameTxt = document.querySelector("#LevelNameTxt");
+  let idError = document.querySelector("#LevelIdError");
+  
+  nameTxt.addEventListener("input", () =>
+  {
+    if(grid.inspectedLevel != null) grid.inspectedLevel.name = nameTxt.value;
+  });
+  
+  let colorInput = document.querySelector("#LevelColorInput");
+  colorInput.addEventListener("input", () =>
+  {
+    let level = grid.inspectedLevel;
+    if(level == null) return;
+    let c = color(colorInput.value);
+    c.setAlpha(LEVEL_FILL_ALPHA);
+    level.color = c;
+  });
+  
+  idTxt.addEventListener("change", () =>
+  {
+    let level = grid.inspectedLevel;
+    if(level == null) return;
+    let newId = idTxt.value.trim().toLowerCase();
+    
+    if(!GridState.isWellFormedLevelId(newId))
+      idError.textContent = "Use only lowercase letters, digits and _";
+    else if(grid.isLevelIdTaken(newId, level))
+      idError.textContent = "Another level already uses this id";
+    else
+    {
+      level.id = newId;
+      idError.textContent = "";
+      idError.hidden = true;
+      idTxt.value = newId;
+      return;
+    }
+    idError.hidden = false;
+    idTxt.value = level.id;
+  });
+  
+  refreshLevelInspector();
+}
+
+// "#rrggbb" for an <input type="color">, ignoring alpha
+function colorToHex(c)
+{
+  let hex2 = (v) => Math.round(v).toString(16).padStart(2, "0");
+  return "#" + hex2(red(c)) + hex2(green(c)) + hex2(blue(c));
+}
+
+function refreshLevelInspector()
+{
+  let level = grid.inspectedLevel;
+  if(level === inspectorShownLevel) return;
+  inspectorShownLevel = level;
+  
+  let idTxt = document.querySelector("#LevelIdTxt");
+  let nameTxt = document.querySelector("#LevelNameTxt");
+  let colorInput = document.querySelector("#LevelColorInput");
+  idTxt.disabled = nameTxt.disabled = colorInput.disabled = (level == null);
+  idTxt.value = level != null ? level.id : "";
+  nameTxt.value = level != null ? level.name : "";
+  if(level != null) colorInput.value = colorToHex(level.color);
+  document.querySelector("#LevelIdError").hidden = true;
 }
 
 function clearWorldCancel()
@@ -114,6 +191,7 @@ function isCloseEnough(value1, value2)
 
 function draw() {
   update();
+  refreshLevelInspector();
   
   background(220);
   grid.drawGrid();
@@ -143,17 +221,23 @@ function draw() {
   }
 }
 
-function mousePressed()
+function mousePressed(event)
 {
+  // Ignore clicks on the buttons and text fields above the canvas
+  if(event && event.target && event.target.tagName !== "CANVAS") return;
+  canvasMouseDown = true;
+  
   grid.selectedLevel = null;
   grid.nowTranslatingALevel = false;
   grid.nowSizingALevel = false;
   
+  let clickedLevel = null;
   grid.levels.forEach((level) =>
   {
     if(level.isMouseInLevel())
     {
       grid.selectedLevel = level;
+      clickedLevel = level;
       
       if(grid.nowAddingDoors || grid.nowAddingWalls)
       {
@@ -222,6 +306,10 @@ function mousePressed()
       }
     }
   });
+  // Clicking a level shows it in the Selected level fields; clicking empty space in Move and Size mode clears them
+  if(clickedLevel != null) grid.inspectedLevel = clickedLevel;
+  else if(grid.inRegularMode) grid.inspectedLevel = null;
+  
   if(grid.nowSettingStartPosition)
   {
     // Check where to put the start position
@@ -240,6 +328,7 @@ function mousePressed()
 
 function mouseReleased()
 {
+  canvasMouseDown = false;
   if(grid.selectedLevel != null) grid.selectedLevel.snapLevelToGrid();
   
   grid.selectedLevel = null;

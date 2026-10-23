@@ -12,6 +12,7 @@ class GridState
     // **********************
   
     this.selectedLevel = null;
+    this.inspectedLevel = null; // level shown in the Selected level fields (stays selected after the mouse is released)
     this.selectedObjective = null;
     this.sizingBorders = createVector(0,0);
     this.hoveringOverLevel = null;
@@ -114,7 +115,37 @@ class GridState
   
   addNewLevel()
   {
-    this.levels.push(new Level(createVector(-2,-2), createVector(4,4), color(255,0,0,150)));
+    let level = new Level(createVector(-2,-2), createVector(4,4), this.nextLevelColor(), this.generateLevelId(), "");
+    this.levels.push(level);
+    this.inspectedLevel = level;
+  }
+  
+  // New levels cycle through a palette so neighboring levels are easy to tell apart.
+  //  Fill alpha stays at LEVEL_FILL_ALPHA so the grid shows through.
+  nextLevelColor()
+  {
+    let hex = LEVEL_PALETTE[this.levels.length % LEVEL_PALETTE.length];
+    let c = color(hex);
+    c.setAlpha(LEVEL_FILL_ALPHA);
+    return c;
+  }
+  
+  // Level ids: lowercase letters, digits and underscores, unique across the world
+  static isWellFormedLevelId(id)
+  {
+    return typeof id === "string" && /^[a-z0-9_]+$/.test(id);
+  }
+  
+  isLevelIdTaken(id, exceptLevel = null)
+  {
+    return this.levels.some((level) => level !== exceptLevel && level.id === id);
+  }
+  
+  generateLevelId()
+  {
+    let n = 1;
+    while(this.isLevelIdTaken("level_" + n)) n++;
+    return "level_" + n;
   }
   
   // Return whether a player is able to move in the given direction from the given position
