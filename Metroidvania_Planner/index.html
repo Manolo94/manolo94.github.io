@@ -50,6 +50,19 @@
         Note: Click which objective unlocks the obstacles before adding the obstacles
       </div>
       <div>
+        Selected level:
+        <label for="LevelIdTxt">id</label>
+        <input type="text" id="LevelIdTxt" size="16" spellcheck="false" disabled/>
+        <label for="LevelNameTxt">name</label>
+        <input type="text" id="LevelNameTxt" size="28" disabled/>
+        <label for="LevelColorInput">color</label>
+        <input type="color" id="LevelColorInput" value="#e05a4f" disabled/>
+        <span id="LevelIdError" style="color: firebrick" hidden></span>
+      </div>
+      <div>
+        Note: Click a level to select it. Ids are saved with the map so other tools can refer to a level; keep an id stable once something depends on it.
+      </div>
+      <div>
         <input type="checkbox" id="SetStartPositionCheck"/>
         <label for="SetStartPositionCheck">Set Start Position</label>
         <input type="checkbox" id="SetEndPositionCheck"/>

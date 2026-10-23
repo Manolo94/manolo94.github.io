@@ -3,6 +3,10 @@ const WALL_BORDER = 0.1; // percentage of gridSize
 
 const OBJ_DEFAULT_COLORS = ["blue", "yellow", "green", "brown", "violet", "purple", "red"]
 
+// Level fill colors: new levels cycle through these; any level can be recolored in the Selected level fields
+const LEVEL_PALETTE = ["#e05a4f", "#8fbf5a", "#5b8fd6", "#d9b44a", "#a47bd1", "#4fb3a9", "#d9853b", "#8a8f99"]
+const LEVEL_FILL_ALPHA = 150; // 0-255
+
 class Objective
 {
   constructor(pos, color, parentLevelPos, parentLevelSize)
@@ -77,11 +81,16 @@ Objective.allObjectives = [];
 
 class Level {
   
-  constructor(pos, size, color) 
+  constructor(pos, size, color, id = "", name = "") 
   {
     this.pos = pos;
     this.size = size;
     this.color = color;
+    
+    // Stable identifier for this level (lowercase letters, digits and underscores, unique in the world),
+    //  so other tools can refer to it even if levels are reordered. The name is free text for display.
+    this.id = id;
+    this.name = name;
     
     // One wall break array per side
     // Each wall break contains an integer representing the location (in grid units) of the 
@@ -105,6 +114,8 @@ class Level {
   getLevelSaveObject()
   {
     return {
+      id: this.id,
+      name: this.name,
       pos: this.pos,
       size: this.size,
       colorStr: this.color.toString(),
@@ -120,7 +131,8 @@ class Level {
     let newLevelSize = createVector(saveObject.size.x, saveObject.size.y)
     let newLevelColor = color(saveObject.colorStr)
     
-    let newLevel = new Level(newLevelPos, newLevelSize, newLevelColor)
+    let newLevel = new Level(newLevelPos, newLevelSize, newLevelColor,
+                             saveObject.id || "", saveObject.name || "")
     newLevel.wallBreaks = saveObject.wallBreaks
     
     newLevel.objectives = []
@@ -269,11 +281,13 @@ class Level {
     // TODO: Need to add a color picker. Rotate around the default colors for now
     let newObjectiveColor = OBJ_DEFAULT_COLORS[(Objective.allObjectives.length % OBJ_DEFAULT_COLORS.length)]
     
-    let newObjective = new Objective(newObjectivePos, newObjectiveColor, this.pos, this.size)
-    let objectiveIdx = this.objectives.findIndex((obj) => obj.pos.x == newObjective.x && 
-                                                          obj.pos.y == newObjective.y);
+    // One objective per cell: clicking a cell that already has one does nothing
+    let objectiveIdx = this.objectives.findIndex((obj) => obj.pos.x == newObjectivePos.x && 
+                                                          obj.pos.y == newObjectivePos.y);
+    if(objectiveIdx != -1) return;
     
-    if(objectiveIdx == -1) this.objectives.push(newObjective);
+    let newObjective = new Objective(newObjectivePos, newObjectiveColor, this.pos, this.size)
+    this.objectives.push(newObjective);
     Objective.updateAllObjectives();
     //console.log("Added new objective " + this.objectives);
   }
@@ -309,10 +323,14 @@ class Level {
     let newObstaclePos = createVector(floor(gridPosition.x - this.pos.x),floor(gridPosition.y - this.pos.y));
     
     let newObstacle = new Obstacle(newObstaclePos, unlockedByObjective.index, this.pos, this.size);
-    let obstacleIdx = this.obstacles.findIndex((obj) => obj.pos.x == newObstacle.x && 
-                                                        obj.pos.y == newObstacle.y);
+    newObstacle.parentObjective = unlockedByObjective;
     
+    // One obstacle per cell: placing on a cell that already has one replaces it,
+    //  so what is drawn is always what the path calculation checks
+    let obstacleIdx = this.obstacles.findIndex((obs) => obs.pos.x == newObstaclePos.x && 
+                                                        obs.pos.y == newObstaclePos.y);
     if(obstacleIdx == -1) this.obstacles.push(newObstacle);
+    else this.obstacles[obstacleIdx] = newObstacle;
     //console.log("Added new objective " + this.objectives);
   }
   
@@ -508,6 +526,36 @@ class Level {
     
     // Draw objectives
     this.drawObjectives();
+    
+    // Draw the level's label
+    this.drawLabel();
+  }
+  
+  // Name (or id when there is no name) in the upper left corner, outlined when the level is selected
+  drawLabel()
+  {
+    let upperLeft = grid.getScreenPosFromGridPos(this.pos);
+    let label = this.name ? this.name : this.id;
+    
+    if(grid.inspectedLevel === this)
+    {
+      let screenSize = grid.gridVectorToScreenVector(this.size);
+      noFill();
+      stroke("darkorange");
+      strokeWeight(3);
+      rect(upperLeft.x + 1, upperLeft.y + 1, screenSize.x - 2, screenSize.y - 2);
+    }
+    
+    if(!label) return;
+    let size = constrain(grid.gridSize * 0.4, 8, 16);
+    textSize(size);
+    textAlign(LEFT, TOP);
+    let lx = upperLeft.x + WALL_BORDER*grid.gridSize + 4, ly = upperLeft.y + WALL_BORDER*grid.gridSize + 3;
+    noStroke();
+    fill(255, 255, 255, 170); // light backing so the label stays readable over objectives and obstacles
+    rect(lx - 2, ly - 1, textWidth(label) + 4, size + 2, 2);
+    fill(20);
+    text(label, lx, ly);
   }
   
   // Returns true if there's a wall blocking player movement when moving in the given direction
