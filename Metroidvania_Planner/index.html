@@ -19,6 +19,7 @@
         </span>
         <button onclick="saveWorld()" id="SaveWorldBtn">Save World</button>
         <button onclick="calculatePath()" id="CalculatePathBtn">Calculate Path</button>
+        <span id="PathMessage" style="color: firebrick" hidden></span>
         <span id="SavedMessage" hidden>
           World Saved!
         </span>
@@ -74,14 +75,28 @@
         Note: Click a level to select it. Ids are saved with the map so other tools can refer to a level; keep an id stable once something depends on it.
       </div>
       <div>
+        <button onclick="toggleWorldCheck()" id="CheckWorldBtn">Check World</button>
+        <input type="radio" id="InspectRadioBtn" name="editorMode"/>
+        <label for="InspectRadioBtn">Inspect Cells</label>
+      </div>
+      <div>
+        Note: Check World shades the cells that can't be reached and lists what each objective needs. In Inspect Cells mode, click a cell to see what it needs.
+      </div>
+      <div>
         <input type="checkbox" id="SetStartPositionCheck"/>
         <label for="SetStartPositionCheck">Set Start Position</label>
         <input type="checkbox" id="SetEndPositionCheck"/>
         <label for="SetEndPositionCheck">Set End Position</label>
       </div>
     </main>
+    <div id="Workspace">
+      <div id="CanvasArea"></div>
+      <aside id="CheckPanel" hidden></aside>
+    </div>
+    <div id="CellPopup" hidden></div>
     <script src="grid.js"></script>
     <script src="level.js"></script>
+    <script src="world_check.js"></script>
     <script src="grid_solver.js"></script>
     <script src="sketch.js"></script>
   </body>
