@@ -50,6 +50,7 @@
             <label class="tool"><input type="radio" id="AddObstacleRadioBtn" name="editorMode" /><span>Add obstacles</span><kbd>6</kbd></label>
             <label class="tool"><input type="radio" id="RemoveObstacleRadioBtn" name="editorMode" /><span>Remove obstacles</span><kbd>7</kbd></label>
             <label class="tool"><input type="radio" id="InspectRadioBtn" name="editorMode"/><span>Inspect cells</span><kbd>8</kbd></label>
+            <label class="tool"><input type="radio" id="PaintRegionRadioBtn" name="editorMode"/><span>Paint regions</span><kbd>9</kbd></label>
           </div>
           <p id="ToolHint" class="hint"></p>
           <div id="ObstacleObjectiveRow" class="field" hidden>
@@ -72,8 +73,28 @@
             <label for="LevelColorInput">Color</label>
             <input type="color" id="LevelColorInput" value="#e05a4f" disabled/>
           </div>
+          <div class="field">
+            <label for="LevelRegionSelect">Region</label>
+            <select id="LevelRegionSelect" disabled><option value="">None</option></select>
+          </div>
           <p id="LevelIdError" class="error" hidden></p>
           <p class="hint">Click a level to select it. Other tools find a level by its id, so keep the id stable once something depends on it.</p>
+        </section>
+
+        <section>
+          <h2>Selected objective</h2>
+          <div class="field">
+            <label for="ObjectiveNameTxt">Name</label>
+            <span class="objective-name-field"><span id="SelectedObjectiveDot"></span><input type="text" id="ObjectiveNameTxt" disabled placeholder="Unnamed"/></span>
+          </div>
+          <p class="hint">Click an objective while adding objectives or obstacles, or inspecting, to select it. Names show on the map when zoomed in, and wherever the objective is listed.</p>
+        </section>
+
+        <section>
+          <h2>Regions</h2>
+          <div id="RegionList"></div>
+          <button id="AddRegionBtn" class="wide">Add region</button>
+          <p class="hint">Zoomed out far enough, each region shows as one shape; click it to zoom in. Pick a region with its dot to paint levels into it with Paint regions.</p>
         </section>
 
         <section>
@@ -103,7 +124,9 @@
     <script src="grid.js"></script>
     <script src="level.js"></script>
     <script src="world_check.js"></script>
+    <script src="regions.js"></script>
     <script src="grid_solver.js"></script>
+    <script src="hier_search.js"></script>
     <script src="sketch.js"></script>
   </body>
 </html>

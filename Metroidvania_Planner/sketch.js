@@ -18,6 +18,9 @@ function setup() {
   setupWorldUpload();
   setupWorldCheck();
   setupToolRail();
+  setupRegions();
+  setupObjectiveInspector();
+  renderRegionList(true);
   
   // Save world automatically every 20 seconds
   var intervalId = window.setInterval(function(){
@@ -156,6 +159,7 @@ function checkWorldSaveObject(world)
   if(!Array.isArray(world.levels)) return "it has no levels list";
   if(!isVec(world.startPosition) || !isVec(world.endPosition)) return "the start or end position is missing";
   if(!isVec(world.gridOriginInScreen) || typeof world.gridSize !== "number") return "the view settings are missing";
+  if(world.regions !== undefined && !Array.isArray(world.regions)) return "its regions are not a list";
   
   let ids = new Set();
   for(let i = 0; i < world.levels.length; i++)
@@ -316,7 +320,9 @@ function calculatePath()
 {
   if(pathSearch != null && pathSearch.isActive) pathSearch.stop();
   Objective.updateAllObjectives();
-  pathSearch = new PathSearch(grid, grid.startPosition, grid.endPosition, routeOptions());
+  // The hierarchical search is much faster; the flat one handles more than 30 tracked objectives
+  pathSearch = new HierarchicalPathSearch(grid, grid.startPosition, grid.endPosition, routeOptions());
+  if(pathSearch.tooBig) pathSearch = new PathSearch(grid, grid.startPosition, grid.endPosition, routeOptions());
   pathSearchSignature = currentWorldSignature();
   pathLastShown = 0;
   grid.setPathFromPathStack(null);
@@ -398,9 +404,14 @@ function showPathProgress(force)
     let state = s.status == "paused" ? "Paused" : s.status == "stopped" ? "Stopped" : "Searching";
     line(strong(state), ": " + states + ", " + seconds);
     if(s.status == "stopped" && s.message) line(s.message);
-    let left = s.bestDistanceToEnd;
-    line("Best so far: " + s.bestRequiredCollected + " of " + s.requiredCount + " required, " +
-         (left == 0 ? "at the end" : left + " step" + (left == 1 ? "" : "s") + " from the end"));
+    if(s.greedyLength >= 0)
+      line("Quick route: " + s.greedyLength + " steps. It's complete; the search is looking for a shorter one.");
+    else
+    {
+      let left = s.bestDistanceToEnd;
+      line("Best so far: " + s.bestRequiredCollected + " of " + s.requiredCount + " required, " +
+           (left == 0 ? "at the end" : left + " step" + (left == 1 ? "" : "s") + " from the end"));
+    }
   }
   
   // Objectives the route picks up, in order: the required ones, and the others that open a gate
@@ -455,13 +466,18 @@ function draw() {
   
   let mousePosInGrid = grid.screenPositionToGridPosition(createVector(mouseX, mouseY));
   
+  updateZoomAnimation();
   grid.levels.forEach((level) =>
   {
     level.drawLevel();
   });
+  drawRegionsOverlay();
+  if(frameCount % 10 == 0) renderRegionList(false);
+  refreshRegionInspector();
   
-  // The level under the mouse shows its whole name, on top of everything
-  if(grid.hoveringOverLevel != null && !canvasMouseDown) grid.hoveringOverLevel.drawLabel(true);
+  // The level under the mouse shows its whole name, on top of everything; an objective under it, its own
+  if(grid.hoveringOverLevel != null && !canvasMouseDown && !regionsCollapsed()) grid.hoveringOverLevel.drawLabel(true);
+  refreshObjectiveInspector();
   
   refreshWorldCheck();
   drawWorldCheckOverlay();
@@ -471,6 +487,12 @@ function draw() {
   grid.drawStartAndEndPositions();
   
   grid.drawCurrentPath();
+  if(!canvasMouseDown && !regionsCollapsed())
+  {
+    let p = grid.screenPositionToGridPosition(createVector(mouseX, mouseY));
+    let hovered = objectiveAt(Math.floor(p.x), Math.floor(p.y));
+    if(hovered && mouseX >= 0 && mouseY >= 0 && mouseX < width && mouseY < height) hovered.drawHoverName();
+  }
   
   // Show highlight if close to border
   if(grid.hoveringOverLevel != null && grid.nowSizingALevel == false && grid.inRegularMode)
@@ -491,6 +513,10 @@ function mousePressed(event)
   // Ignore clicks on the buttons and text fields above the canvas
   if(event && event.target && event.target.tagName !== "CANVAS") return;
   canvasMouseDown = true;
+  zoomTarget = null;
+  
+  // Zoomed out: a click on a region zooms into it instead of editing the levels underneath
+  if(handleRegionClick()) { canvasMouseDown = false; return; }
   
   grid.selectedLevel = null;
   grid.nowTranslatingALevel = false;
@@ -522,7 +548,7 @@ function mousePressed(event)
         // Check where to put the objective
         let mousePosInGrid = grid.screenPositionToGridPosition(createVector(mouseX, mouseY));
         
-        if(grid.nowAddingObjectives) level.addObjective(mousePosInGrid);
+        if(grid.nowAddingObjectives) grid.inspectedObjective = level.addObjective(mousePosInGrid);
         else if(grid.nowRemovingObjectives) level.removeObjective(mousePosInGrid);
       }
       else if(grid.nowAddingObstaclesToALevel || grid.nowRemovingObstaclesFromALevel)
@@ -535,6 +561,7 @@ function mousePressed(event)
         if(clickedObjective != null)
         {
           grid.selectedObjective = clickedObjective;
+          grid.inspectedObjective = clickedObjective;
           document.querySelector("#SelectedObjectiveTxt").value = grid.selectedObjective.index;
         }
         else if(grid.selectedObjective != null)
@@ -573,6 +600,8 @@ function mousePressed(event)
   });
   if(document.querySelector("#InspectRadioBtn").checked)
     inspectCellUnderMouse(event);
+  if(document.querySelector("#PaintRegionRadioBtn").checked && clickedLevel != null)
+    paintRegion(clickedLevel);
   
   // Clicking a level shows it in the Selected level fields; clicking empty space in Move and Size mode clears them
   if(clickedLevel != null) grid.inspectedLevel = clickedLevel;
@@ -689,6 +718,8 @@ function objectiveDot(i, colorName)
   let c = color(colorName || "#ccc");
   if(0.299 * red(c) + 0.587 * green(c) + 0.114 * blue(c) < 140) { dot.style.color = "#fff"; dot.style.textShadow = "none"; }
   dot.textContent = i;
+  let obj = Objective.allObjectives[i];
+  dot.title = "#" + i + (obj && obj.name ? " " + obj.name : "");
   return dot;
 }
 
@@ -758,6 +789,8 @@ function renderCheckPanel(r)
   {
     let row = el("tr");
     let dotCell = el("td"); dotCell.append(objectiveDot(o.index, o.color));
+    let objName = Objective.allObjectives[o.index].name;
+    if(objName) dotCell.append(el("span", "obj-name", objName));
     row.append(dotCell);
     row.append(el("td", o.status == "unreachable" ? "bad" : null, statusText[o.status]));
     let needs = el("td", "needs");
@@ -794,6 +827,35 @@ function renderCheckPanel(r)
     table.append(row);
   });
   panel.append(table);
+  
+  // One line per region: how much of it can be reached, and what getting in and covering it all need
+  let regions = analyzeRegions(r);
+  if(regions.length > 0)
+  {
+    panel.append(el("h4", null, "Regions"));
+    let rt = el("table");
+    let rh = el("tr");
+    ["Region", "Reachable", "Entry needs", "All of it needs"].forEach((h) => rh.append(el("th", null, h)));
+    rt.append(rh);
+    regions.forEach((info) =>
+    {
+      let row = el("tr");
+      let name = el("td");
+      let sw = el("span", "region-swatch"); sw.style.background = info.region.color;
+      name.append(sw, info.region.name);
+      row.append(name);
+      let pct = Math.round(100 * info.reachable / info.cells);
+      row.append(el("td", pct < 100 ? (pct == 0 ? "bad" : null) : "ok", pct + "%"));
+      let entry = el("td", "needs");
+      if(info.entry == null) entry.textContent = "-"; else entry.append(objectiveList(info.entry, "nothing"));
+      row.append(entry);
+      let all = el("td", "needs");
+      all.append(objectiveList([...info.all].sort((a, b) => a - b), info.reachable ? "nothing" : "-"));
+      row.append(all);
+      rt.append(row);
+    });
+    panel.append(rt);
+  }
 }
 
 // Darken the cells that can't be reached, and outline the inspected cell
@@ -830,6 +892,8 @@ function inspectCellUnderMouse(event)
 {
   if(worldCheckResult == null) runWorldCheck();
   let pos = grid.screenPositionToGridPosition(createVector(mouseX, mouseY));
+  let here = objectiveAt(Math.floor(pos.x), Math.floor(pos.y));
+  if(here) grid.inspectedObjective = here;
   showCellPopup(Math.floor(pos.x), Math.floor(pos.y), event);
 }
 
@@ -857,9 +921,10 @@ function showCellPopup(x, y, event)
   if(d.objective >= 0)
   {
     let statusText = { collected: "collected", have: "in hand", never: "ignored", unreachable: "can't be collected" };
-    line("Objective ", dotFor(d.objective), " (" + statusText[d.objectiveInfo.status] + ")");
+    let objName = Objective.allObjectives[d.objective].name;
+    line("Objective ", dotFor(d.objective), (objName ? " " + objName : "") + " (" + statusText[d.objectiveInfo.status] + ")");
   }
-  if(d.gate >= 0) line("Gate: opens with ", dotFor(d.gate));
+  if(d.gate >= 0) line("Gate: opens with ", dotFor(d.gate), Objective.allObjectives[d.gate].name ? " " + Objective.allObjectives[d.gate].name : "");
   else if(d.gate == NEEDS_REMOVED_OBJECTIVE) line("Gate: its objective was removed, so it never opens");
   
   if(d.reachable)
@@ -919,7 +984,8 @@ const TOOL_HINTS = {
   RemoveObjectivesRadioBtn: "Click an objective to remove it.",
   AddObstacleRadioBtn: "Click an objective to choose what opens the obstacle, then click cells to block them.",
   RemoveObstacleRadioBtn: "Click an obstacle to remove it.",
-  InspectRadioBtn: "Click a cell to see what it needs to be reached and what it unlocks."
+  InspectRadioBtn: "Click a cell to see what it needs to be reached and what it unlocks.",
+  PaintRegionRadioBtn: "Click levels to put them in the region picked in the Regions list; click again to take them out."
 };
 
 function setupToolRail()
@@ -944,4 +1010,34 @@ function setupToolRail()
     radios[n - 1].checked = true;
     radios[n - 1].dispatchEvent(new Event("change"));
   });
+}
+
+// ---------------------------------------------------------------------------------------------
+// Objective names: the Selected objective field, and finding the objective in a cell
+
+function objectiveAt(x, y)
+{
+  return Objective.allObjectives.find((o) => o.pos.x + o.parentLevelPos.x == x && o.pos.y + o.parentLevelPos.y == y);
+}
+
+let objectiveInspectorShown = undefined;
+
+function setupObjectiveInspector()
+{
+  document.querySelector("#ObjectiveNameTxt").addEventListener("input", (e) =>
+  {
+    if(grid.inspectedObjective) grid.inspectedObjective.name = e.target.value;
+  });
+}
+
+function refreshObjectiveInspector()
+{
+  let obj = grid.inspectedObjective;
+  if(obj && !Objective.allObjectives.includes(obj)) obj = grid.inspectedObjective = null;   // removed
+  if(obj === objectiveInspectorShown) return;
+  objectiveInspectorShown = obj;
+  let input = document.querySelector("#ObjectiveNameTxt");
+  input.disabled = !obj;
+  input.value = obj ? obj.name : "";
+  document.querySelector("#SelectedObjectiveDot").replaceChildren(...(obj ? [objectiveDot(obj.index, obj.color)] : []));
 }

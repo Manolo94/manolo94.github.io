@@ -1,3 +1,6 @@
+// Smallest zoom, in pixels per cell: low enough to fit a few hundred rooms on screen
+const MIN_GRID_SIZE = 2;
+
 class GridState
 {
   constructor()
@@ -9,9 +12,11 @@ class GridState
     this.levels = []
     this.startPosition = createVector(0,0); // in grid units
     this.endPosition = createVector(5,0); // in grid units
+    this.regions = []; // map regions: {id, name, color "#rrggbb"}; levels refer to them by id
     // **********************
   
     this.selectedLevel = null;
+    this.inspectedObjective = null; // objective shown in the Selected objective field
     this.inspectedLevel = null; // level shown in the Selected level fields (stays selected after the mouse is released)
     this.selectedObjective = null;
     this.sizingBorders = createVector(0,0);
@@ -45,7 +50,8 @@ class GridState
       gridSize: this.gridSize,
       levels: levelsToSave,
       startPosition: this.startPosition,
-      endPosition: this.endPosition
+      endPosition: this.endPosition,
+      regions: this.regions
     }
   }
   
@@ -84,6 +90,14 @@ class GridState
     
     this.startPosition = createVector(saveObject.startPosition.x, saveObject.startPosition.y)
     this.endPosition = createVector(saveObject.endPosition.x, saveObject.endPosition.y)
+    
+    // Regions are optional (older worlds have none)
+    this.regions = (Array.isArray(saveObject.regions) ? saveObject.regions : [])
+      .filter((r) => r && GridState.isWellFormedLevelId(r.id))
+      .map((r) => ({ id: r.id, name: typeof r.name === "string" ? r.name : r.id,
+                     color: /^#[0-9a-fA-F]{6}$/.test(r.color) ? r.color : "#8a8f99" }));
+    let known = new Set(this.regions.map((r) => r.id));
+    this.levels.forEach((level) => { if(!known.has(level.region)) level.region = ""; });
     
     return true;
   }
@@ -193,9 +207,9 @@ class GridState
   {
     let prevGridSize = this.gridSize;
   
-    // Zoom out when delta is positive (gridSize gets smaller)
-    this.gridSize -= event.delta/100;
-    if(this.gridSize < width/100) this.gridSize = width/100;
+    // Zoom out when delta is positive (gridSize gets smaller); proportional, so it feels the same at any zoom
+    this.gridSize *= Math.pow(1.0015, -wheelEvent.delta);
+    if(this.gridSize < MIN_GRID_SIZE) this.gridSize = MIN_GRID_SIZE;
     if(this.gridSize > width/5) this.gridSize = width/5;
 
     let deltaGridSize = this.gridSize - prevGridSize;

@@ -6,13 +6,15 @@ const OBJ_DEFAULT_COLORS = ["blue", "yellow", "green", "brown", "violet", "purpl
 // Level fill colors: new levels cycle through these; any level can be recolored in the Selected level fields
 const LEVEL_PALETTE = ["#e05a4f", "#8fbf5a", "#5b8fd6", "#d9b44a", "#a47bd1", "#4fb3a9", "#d9853b", "#8a8f99"]
 const LEVEL_FILL_ALPHA = 150; // 0-255
+const OBJECTIVE_NAME_MIN_ZOOM = 24; // pixels per cell where objective names start showing on the map
 
 class Objective
 {
-  constructor(pos, color, parentLevelPos, parentLevelSize)
+  constructor(pos, color, parentLevelPos, parentLevelSize, name = "")
   {
     this.pos = pos;
     this.color = color;
+    this.name = name; // free-text label shown next to the dot (may be empty)
     this.index = Objective.allObjectives.length;
     this.parentLevelPos = parentLevelPos;
     this.parentLevelSize = parentLevelSize;
@@ -26,15 +28,57 @@ class Objective
       return;
       
     let objPosInScreen = grid.getScreenPosFromGridPos(p5.Vector.add(this.pos, this.parentLevelPos));
+    let s = grid.gridSize;
     fill(this.color);
     strokeWeight(1);
     stroke(10);
-    circle(objPosInScreen.x + grid.gridSize/2, objPosInScreen.y + grid.gridSize/2, grid.gridSize/2);
+    circle(objPosInScreen.x + s/2, objPosInScreen.y + s/2, s/2);
     
-    fill(100);
-    textAlign(CENTER, CENTER)
-    text(this.index+'', objPosInScreen.x + grid.gridSize/2, objPosInScreen.y + grid.gridSize/2);
+    if(s >= 10)
+    {
+      noStroke();
+      let c = color(this.color);
+      fill(0.299 * red(c) + 0.587 * green(c) + 0.114 * blue(c) < 140 ? 245 : 40);   // readable on dark and light dots
+      textSize(constrain(s * 0.3, 7, 13));
+      textAlign(CENTER, CENTER);
+      text(this.index+'', objPosInScreen.x + s/2, objPosInScreen.y + s/2);
+    }
+    
+    // Name to the right of the dot, shortened to fit what's left of the level, once zoomed in enough
+    if(this.name && s >= OBJECTIVE_NAME_MIN_ZOOM)
+    {
+      let size = constrain(s * 0.32, 9, 13);
+      textSize(size);
+      textAlign(LEFT, CENTER);
+      let x = objPosInScreen.x + s * 0.8, y = objPosInScreen.y + s / 2;
+      let room = this.parentLevelPos.x * s + this.parentLevelSize.x * s + grid.gridOriginInScreen.x - x - 6;
+      let label = fitText(this.name, room);
+      if(!label) return;
+      noStroke();
+      fill(255, 255, 255, 200);
+      rect(x - 2, y - size / 2 - 1, textWidth(label) + 4, size + 2, 2);
+      fill(20);
+      text(label, x, y);
+    }
   }
+  
+  // Whole name in a box next to the mouse (drawn on top of everything when the objective is hovered)
+  drawHoverName()
+  {
+    let label = "#" + this.index + (this.name ? "  " + this.name : "");
+    let size = 13;
+    textSize(size);
+    textAlign(LEFT, TOP);
+    let w = textWidth(label) + 10;
+    let x = Math.min(mouseX + 14, width - w - 4), y = Math.min(mouseY + 14, height - size - 12);
+    noStroke();
+    fill(29, 38, 48, 235);
+    rect(x, y, w, size + 8, 3);
+    fill(240);
+    text(label, x + 5, y + 4);
+  }
+  
+  globalPos() { return p5.Vector.add(this.pos, this.parentLevelPos); }
 
   static updateAllObjectives()
   {
@@ -102,7 +146,7 @@ function fitText(label, maxWidth)
 
 class Level {
   
-  constructor(pos, size, color, id = "", name = "") 
+  constructor(pos, size, color, id = "", name = "", region = "") 
   {
     this.pos = pos;
     this.size = size;
@@ -112,6 +156,7 @@ class Level {
     //  so other tools can refer to it even if levels are reordered. The name is free text for display.
     this.id = id;
     this.name = name;
+    this.region = region; // id of the map region this level belongs to, or "" for none
     
     // One wall break array per side
     // Each wall break contains an integer representing the location (in grid units) of the 
@@ -137,6 +182,7 @@ class Level {
     return {
       id: this.id,
       name: this.name,
+      region: this.region,
       pos: this.pos,
       size: this.size,
       colorStr: this.color.toString(),
@@ -153,7 +199,8 @@ class Level {
     let newLevelColor = color(saveObject.colorStr)
     
     let newLevel = new Level(newLevelPos, newLevelSize, newLevelColor,
-                             saveObject.id || "", saveObject.name || "")
+                             saveObject.id || "", saveObject.name || "",
+                             typeof saveObject.region === "string" ? saveObject.region : "")
     newLevel.wallBreaks = saveObject.wallBreaks
     
     newLevel.objectives = []
@@ -162,7 +209,8 @@ class Level {
       if(obj.pos !== undefined && obj.color !== undefined)
       {
         newLevel.objectives.push(new Objective(createVector(obj.pos.x, obj.pos.y), obj.color, 
-                                               newLevel.pos, newLevel.size))
+                                               newLevel.pos, newLevel.size,
+                                               typeof obj.name === "string" ? obj.name : ""))
       }
     })
 
@@ -305,11 +353,12 @@ class Level {
     // One objective per cell: clicking a cell that already has one does nothing
     let objectiveIdx = this.objectives.findIndex((obj) => obj.pos.x == newObjectivePos.x && 
                                                           obj.pos.y == newObjectivePos.y);
-    if(objectiveIdx != -1) return;
+    if(objectiveIdx != -1) return this.objectives[objectiveIdx];
     
     let newObjective = new Objective(newObjectivePos, newObjectiveColor, this.pos, this.size)
     this.objectives.push(newObjective);
     Objective.updateAllObjectives();
+    return newObjective;
     //console.log("Added new objective " + this.objectives);
   }
   
