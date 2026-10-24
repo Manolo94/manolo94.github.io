@@ -203,24 +203,13 @@ class GridState
     return false
   }
   
-  zoomGrid(wheelEvent)
+  // Zoom by 'factor' around screen point (sx, sy): the grid point under it stays put
+  zoomAt(factor, sx, sy)
   {
-    let prevGridSize = this.gridSize;
-  
-    // Zoom out when delta is positive (gridSize gets smaller); proportional, so it feels the same at any zoom
-    this.gridSize *= Math.pow(1.0015, -wheelEvent.delta);
-    if(this.gridSize < MIN_GRID_SIZE) this.gridSize = MIN_GRID_SIZE;
-    if(this.gridSize > width/5) this.gridSize = width/5;
-
-    let deltaGridSize = this.gridSize - prevGridSize;
-
-    // Move grid origin position in screen to keep
-    //  whatever the mouse is hovering over on screen as we zoom in and out
-    // First get the mouse position in grid coordinates
-    let mouseInGrid = this.screenPositionToGridPosition(createVector(mouseX, mouseY));
-    // Now apply the formula OriginPos'_x = - grid_x * deltaGridSize + OriginPos_x
-    this.gridOriginInScreen.x = - mouseInGrid.x * deltaGridSize + this.gridOriginInScreen.x;
-    this.gridOriginInScreen.y = - mouseInGrid.y * deltaGridSize + this.gridOriginInScreen.y;
+    let anchor = this.screenPositionToGridPosition(createVector(sx, sy));
+    this.gridSize = constrain(this.gridSize * factor, MIN_GRID_SIZE, Math.max(width / 5, MIN_GRID_SIZE));
+    this.gridOriginInScreen.x = sx - anchor.x * this.gridSize;
+    this.gridOriginInScreen.y = sy - anchor.y * this.gridSize;
   }
   
   setStartPosition(gridPosition)
