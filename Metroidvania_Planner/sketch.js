@@ -3,7 +3,8 @@ let canvasMouseDown = false; // true only while a press that started on the canv
 function setup() {
   // The canvas fills its area and follows it when the window or the check panel changes size
   let area = document.querySelector("#CanvasArea");
-  createCanvas(Math.max(area.clientWidth, 100), Math.max(area.clientHeight, 100)).parent(area);
+  let canvas = createCanvas(Math.max(area.clientWidth, 100), Math.max(area.clientHeight, 100)).parent(area);
+  setupCanvasGestures(canvas.elt);
   new ResizeObserver(() =>
   {
     if(area.clientWidth > 0 && area.clientHeight > 0 && (area.clientWidth != width || area.clientHeight != height))
@@ -57,8 +58,8 @@ function update()
       grid.selectedLevel.adjustLevelSize(grid.sizingBorders, mousePosInGrid);
     }
   }
-  // Pan around the grid
-  else if(canvasMouseDown)
+  // Pan around the grid (not while pinching: the fingers' midpoint pans then)
+  else if(canvasMouseDown && pinch == null)
   {
     // Pan around the grid when nothing is selected and mouse is pressed
     grid.panGrid(mouseX - pmouseX, mouseY - pmouseY);
@@ -510,8 +511,9 @@ function draw() {
 
 function mousePressed(event)
 {
-  // Ignore clicks on the buttons and text fields above the canvas
+  // Ignore clicks on the buttons and text fields above the canvas, and extra fingers while pinching
   if(event && event.target && event.target.tagName !== "CANVAS") return;
+  if(pinch != null) return;
   canvasMouseDown = true;
   zoomTarget = null;
   
@@ -639,9 +641,55 @@ function addLevel()
   grid.addNewLevel();
 }
 
-function mouseWheel(event)
+// ---------------------------------------------------------------------------------------------
+// Zoom and pan gestures on the canvas. The page itself never scrolls from them: the wheel and touch
+//  handlers cancel the browser's default, and the canvas has touch-action: none.
+
+let pinch = null;   // {distance, midX, midY} while two fingers are down
+
+function setupCanvasGestures(canvasElement)
 {
-  grid.zoomGrid(event);
+  canvasElement.addEventListener("wheel", (e) =>
+  {
+    e.preventDefault();
+    zoomTarget = null;
+    // Lines and pages (Firefox, some mice) to pixels, so every device zooms at a similar speed
+    let delta = e.deltaY * (e.deltaMode == 1 ? 16 : e.deltaMode == 2 ? 400 : 1);
+    grid.zoomAt(Math.pow(1.0015, -delta), e.offsetX, e.offsetY);
+  }, { passive: false });
+  
+  let local = (t) => { let r = canvasElement.getBoundingClientRect(); return [t.clientX - r.left, t.clientY - r.top]; };
+  let twoFingers = (e) =>
+  {
+    let [ax, ay] = local(e.touches[0]), [bx, by] = local(e.touches[1]);
+    return { distance: Math.max(1, Math.hypot(ax - bx, ay - by)), midX: (ax + bx) / 2, midY: (ay + by) / 2 };
+  };
+  canvasElement.addEventListener("touchstart", (e) =>
+  {
+    e.preventDefault();   // also stops the browser from sending a second, emulated mouse click
+    if(e.touches.length >= 2)
+    {
+      // Second finger: switch from editing or panning to pinch zoom
+      pinch = twoFingers(e);
+      zoomTarget = null;
+      canvasMouseDown = false;
+      grid.selectedLevel = null;
+      grid.nowTranslatingALevel = false;
+      grid.nowSizingALevel = false;
+    }
+  }, { passive: false });
+  canvasElement.addEventListener("touchmove", (e) =>
+  {
+    e.preventDefault();
+    if(pinch == null || e.touches.length < 2) return;
+    let now = twoFingers(e);
+    grid.panGrid(now.midX - pinch.midX, now.midY - pinch.midY);
+    grid.zoomAt(now.distance / pinch.distance, now.midX, now.midY);
+    pinch = now;
+  }, { passive: false });
+  let release = (e) => { if(e.touches.length == 0) pinch = null; };
+  canvasElement.addEventListener("touchend", release);
+  canvasElement.addEventListener("touchcancel", release);
 }
 // ---------------------------------------------------------------------------------------------
 // World check (Check World button, objective toggles, Inspect Cells mode). Analysis is in world_check.js.
@@ -1040,4 +1088,17 @@ function refreshObjectiveInspector()
   input.disabled = !obj;
   input.value = obj ? obj.name : "";
   document.querySelector("#SelectedObjectiveDot").replaceChildren(...(obj ? [objectiveDot(obj.index, obj.color)] : []));
+}
+
+// p5 doesn't turn touches into mouse presses (it relied on the browser's emulated mouse events, which the
+//  canvas now cancels so one tap can't act twice), so touches go through the same handlers here
+function touchStarted(event)
+{
+  mousePressed(event);
+}
+
+function touchEnded(event)
+{
+  if(event && event.touches && event.touches.length > 0) return;   // a finger is still down (pinch)
+  mouseReleased(event);
 }

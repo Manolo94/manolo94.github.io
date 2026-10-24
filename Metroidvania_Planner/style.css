@@ -31,6 +31,8 @@ html, body {
 }
 
 canvas { display: block; }
+/* The canvas handles its own panning and zooming, so touches on it never scroll the page */
+#CanvasArea canvas { touch-action: none; }
 
 button, input { font: inherit; color: inherit; }
 
